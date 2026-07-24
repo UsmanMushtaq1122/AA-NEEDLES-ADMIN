@@ -1,0 +1,235 @@
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { Save, Search, Globe, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { seoSettingsSchema } from "@/lib/validations";
+import { useToast } from "@/components/ui/toast";
+
+type SEOForm = {
+  metaTitle: string;
+  metaDescription: string;
+  baseUrl: string;
+  canonicalUrl: boolean;
+};
+
+const MOCK_SEO: SEOForm = {
+  metaTitle: "AA Neddles | Luxury Fashion & Premium Clothing Pakistan",
+  metaDescription:
+    "Discover handcrafted luxury fashion at AA Neddles. Premium kurtis, suits, sarees & accessories with timeless Pakistani elegance.",
+  baseUrl: "https://aaneddles.com",
+  canonicalUrl: true,
+};
+
+function saveSEO(_data: SEOForm): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 800));
+}
+
+export default function SEOSettingsPage() {
+  const { toast } = useToast();
+  const [titleCharCount, setTitleCharCount] = useState(
+    MOCK_SEO.metaTitle.length
+  );
+  const [descCharCount, setDescCharCount] = useState(
+    MOCK_SEO.metaDescription.length
+  );
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<SEOForm>({
+    resolver: zodResolver(seoSettingsSchema) as any,
+    defaultValues: MOCK_SEO,
+  });
+
+  const metaTitle = watch("metaTitle");
+  const metaDescription = watch("metaDescription");
+  const baseUrl = watch("baseUrl");
+
+  const saveMutation = useMutation({
+    mutationFn: saveSEO,
+    onSuccess: () => {
+      toast("success", "SEO settings saved successfully");
+    },
+    onError: () => {
+      toast("error", "Failed to save SEO settings");
+    },
+  });
+
+  const onSubmit = (data: SEOForm) => {
+    saveMutation.mutate(data);
+  };
+
+  return (
+    <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
+          SEO Defaults
+        </h1>
+      </motion.div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#C9A96E]/10">
+                  <Search className="h-5 w-5 text-[#7A6543]" />
+                </div>
+                <div>
+                  <CardTitle>Default Meta Tags</CardTitle>
+                  <CardDescription>
+                    Set the default SEO meta information for your store pages
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <Input
+                  label="Meta Title"
+                  {...register("metaTitle")}
+                  error={errors.metaTitle?.message}
+                  onChange={(e) => {
+                    register("metaTitle").onChange(e);
+                    setTitleCharCount(e.target.value.length);
+                  }}
+                />
+                <div className="mt-1.5 flex justify-between">
+                  <p className="text-xs text-gray-400">
+                    Appears in search engine results and browser tabs
+                  </p>
+                  <span
+                    className={`text-xs font-medium ${
+                      titleCharCount > 60 ? "text-red-500" : "text-gray-400"
+                    }`}
+                  >
+                    {titleCharCount}/60
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Textarea
+                  label="Meta Description"
+                  rows={3}
+                  {...register("metaDescription")}
+                  error={errors.metaDescription?.message}
+                  onChange={(e) => {
+                    register("metaDescription").onChange(e);
+                    setDescCharCount(e.target.value.length);
+                  }}
+                />
+                <div className="mt-1.5 flex justify-between">
+                  <p className="text-xs text-gray-400">
+                    Summary shown below the title in search results
+                  </p>
+                  <span
+                    className={`text-xs font-medium ${
+                      descCharCount > 160 ? "text-red-500" : "text-gray-400"
+                    }`}
+                  >
+                    {descCharCount}/160
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-[#1A1A1A]">
+                  Search Preview
+                </p>
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>{baseUrl}</span>
+                  </div>
+                  <p className="mt-1.5 text-lg font-medium text-blue-700">
+                    {metaTitle || "Page Title"}
+                  </p>
+                  <p className="mt-1 text-sm text-green-700">
+                    {baseUrl}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {metaDescription ||
+                      "A brief description of your page content appears here..."}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#C9A96E]/10">
+                  <Globe className="h-5 w-5 text-[#7A6543]" />
+                </div>
+                <div>
+                  <CardTitle>URL Settings</CardTitle>
+                  <CardDescription>
+                    Configure URL structure and canonical preferences
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <Input
+                label="Base URL"
+                {...register("baseUrl")}
+                error={errors.baseUrl?.message}
+              />
+              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-[#F5F0EB]/30 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Eye className="h-4 w-4 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-[#1A1A1A]">
+                      Canonical URL
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Prevent duplicate content issues in search engines
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={watch("canonicalUrl")}
+                  onCheckedChange={(checked) => setValue("canonicalUrl", checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <div className="flex justify-end">
+          <Button type="submit" loading={saveMutation.isPending}>
+            <Save className="h-4 w-4" />
+            Save Changes
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
