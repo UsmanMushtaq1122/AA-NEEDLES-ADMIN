@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { settingsSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
 
 type SettingsForm = {
   brandName: string;
@@ -39,27 +40,6 @@ type SettingsForm = {
     youtube?: string;
   };
 };
-
-const MOCK_SETTINGS: SettingsForm = {
-  brandName: "AA Neddles",
-  brandDescription:
-    "AA Neddles is a luxury fashion brand rooted in Pakistani heritage, offering premium handcrafted clothing with timeless elegance.",
-  contactEmail: "support@aaneddles.com",
-  contactPhone: "+92 300 1234567",
-  address: "23-C, MM Alam Road, Gulberg III, Lahore, Punjab, Pakistan",
-  returnWindowDays: 14,
-  exchangeWindowDays: 30,
-  socialLinks: {
-    instagram: "https://instagram.com/aaneddles",
-    facebook: "https://facebook.com/aaneddles",
-    tiktok: "https://tiktok.com/@aaneddles",
-    youtube: "https://youtube.com/@aaneddles",
-  },
-};
-
-function saveSettings(_data: SettingsForm): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
-}
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -99,14 +79,27 @@ export default function SettingsPage() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema) as any,
-    defaultValues: MOCK_SETTINGS,
+    defaultValues: {},
   });
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get<any>("/settings");
+        reset(res.data);
+      } catch (error) {
+        console.error("Failed to fetch settings", error);
+      }
+    };
+    fetchSettings();
+  }, [reset]);
+
   const saveMutation = useMutation({
-    mutationFn: saveSettings,
+    mutationFn: (data: SettingsForm) => api.put("/settings", data),
     onSuccess: () => {
       toast("success", "Settings saved successfully");
     },

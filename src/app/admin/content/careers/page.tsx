@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface Career {
   id: string;
@@ -50,97 +51,7 @@ interface Career {
   active: boolean;
 }
 
-const mockCareers: Career[] = [
-  {
-    id: "cr1",
-    title: "Senior Fashion Designer",
-    department: "Design",
-    location: "Lahore",
-    type: "full-time",
-    description: "We are seeking a talented Senior Fashion Designer to lead our design team in creating luxury ready-to-wear and haute couture collections. You will work closely with our creative director to translate brand vision into stunning, wearable art that celebrates Pakistani textile heritage.",
-    requirements: [
-      "Bachelor's degree in Fashion Design or related field",
-      "5+ years of experience in luxury fashion design",
-      "Proficiency in Adobe Creative Suite and CLO 3D",
-      "Strong understanding of South Asian textiles and embroidery techniques",
-      "Portfolio demonstrating high-end design capabilities",
-      "Experience managing a small design team",
-    ],
-    salary: "PKR 250,000 - 350,000 / month",
-    active: true,
-  },
-  {
-    id: "cr2",
-    title: "E-commerce Manager",
-    department: "Digital",
-    location: "Lahore",
-    type: "full-time",
-    description: "Join our digital team as E-commerce Manager to oversee and optimize our online retail operations. You will be responsible for driving online revenue, managing the website experience, and implementing digital marketing strategies that align with our luxury brand positioning.",
-    requirements: [
-      "Bachelor's degree in Business, Marketing, or related field",
-      "3+ years of e-commerce management experience",
-      "Experience with Shopify or similar platforms",
-      "Strong analytical skills and data-driven approach",
-      "Knowledge of SEO, SEM, and social media marketing",
-      "Understanding of luxury retail customer behavior",
-    ],
-    salary: "PKR 180,000 - 250,000 / month",
-    active: true,
-  },
-  {
-    id: "cr3",
-    title: "Marketing Executive",
-    department: "Marketing",
-    location: "Karachi",
-    type: "full-time",
-    description: "We are looking for a creative Marketing Executive to develop and execute marketing campaigns that elevate our brand presence. You will manage social media channels, coordinate with influencers, and create compelling content that resonates with our audience.",
-    requirements: [
-      "Bachelor's degree in Marketing, Communications, or related field",
-      "1-3 years of marketing experience, preferably in fashion/lifestyle",
-      "Excellent written and verbal communication skills",
-      "Proficiency in social media management tools",
-      "Experience with content creation and photography",
-      "Strong understanding of the Pakistani fashion market",
-    ],
-    salary: "PKR 80,000 - 120,000 / month",
-    active: true,
-  },
-  {
-    id: "cr4",
-    title: "Production Coordinator",
-    department: "Operations",
-    location: "Lahore",
-    type: "full-time",
-    description: "Manage the end-to-end production process from sampling to final delivery. Coordinate with our manufacturing partners to ensure quality standards are met and timelines are adhered to. You will be the bridge between design and production.",
-    requirements: [
-      "Bachelor's degree in Textile Engineering, Fashion Technology, or related field",
-      "2+ years in garment production management",
-      "Strong knowledge of fabric types and garment construction",
-      "Excellent organizational and communication skills",
-      "Experience with production planning and inventory management",
-    ],
-    salary: "PKR 100,000 - 150,000 / month",
-    active: true,
-  },
-  {
-    id: "cr5",
-    title: "Fashion Photography Intern",
-    department: "Creative",
-    location: "Lahore",
-    type: "internship",
-    description: "A 6-month internship opportunity for aspiring fashion photographers. Work alongside our creative team to shoot product, editorial, and campaign imagery. This is a hands-on learning experience with potential for full-time employment.",
-    requirements: [
-      "Currently enrolled or recent graduate in Photography/Visual Arts",
-      "Portfolio demonstrating fashion or portrait photography skills",
-      "Proficiency in Adobe Lightroom and Photoshop",
-      "Own camera equipment (DSLR or mirrorless)",
-      "Passion for fashion and luxury branding",
-      "Available for minimum 4 days per week",
-    ],
-    salary: "PKR 30,000 / month (stipend)",
-    active: false,
-  },
-];
+
 
 const typeConfig: Record<string, { label: string; color: string }> = {
   "full-time": { label: "Full-Time", color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
@@ -158,7 +69,7 @@ const departmentColors: Record<string, string> = {
 };
 
 export default function CareersPage() {
-  const [careers, setCareers] = useState(mockCareers);
+  const [careers, setCareers] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCareer, setEditingCareer] = useState<Career | null>(null);
@@ -172,6 +83,18 @@ export default function CareersPage() {
     salary: "",
     active: true,
   });
+
+  useEffect(() => {
+    const fetchCareers = async () => {
+      try {
+        const res = await api.get<any>("/careers");
+        setCareers(res.data);
+      } catch (error) {
+        console.error("Failed to fetch careers", error);
+      }
+    };
+    fetchCareers();
+  }, []);
 
   const openAdd = () => {
     setEditingCareer(null);
@@ -203,31 +126,46 @@ export default function CareersPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const filteredReqs = form.requirements.filter((r) => r.trim() !== "");
-    if (editingCareer) {
-      setCareers((prev) =>
-        prev.map((c) =>
-          c.id === editingCareer.id ? { ...c, ...form, requirements: filteredReqs } : c
-        )
-      );
-    } else {
-      setCareers((prev) => [
-        ...prev,
-        { id: `cr${Date.now()}`, ...form, requirements: filteredReqs },
-      ]);
+    try {
+      if (editingCareer) {
+        const { data } = await api.put<any>(`/careers/${editingCareer.id}`, { ...form, requirements: filteredReqs });
+        setCareers((prev) =>
+          prev.map((c) =>
+            c.id === editingCareer.id ? { ...c, ...data } : c
+          )
+        );
+      } else {
+        const { data } = await api.post<any>("/careers", { ...form, requirements: filteredReqs });
+        setCareers((prev) => [...prev, data]);
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to save career", error);
     }
-    setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setCareers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, active: !c.active } : c))
-    );
+  const toggleActive = async (id: string) => {
+    const career = careers.find((c) => c.id === id);
+    if (!career) return;
+    try {
+      const { data } = await api.patch<any>(`/careers/${id}`, { active: !career.active });
+      setCareers((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, active: data.active } : c))
+      );
+    } catch (error) {
+      console.error("Failed to toggle status", error);
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setCareers((prev) => prev.filter((c) => c.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      await api.delete(`/careers/${id}`);
+      setCareers((prev) => prev.filter((c) => c.id !== id));
+    } catch (error) {
+      console.error("Failed to delete career", error);
+    }
   };
 
   const addRequirement = () => {
@@ -344,7 +282,7 @@ export default function CareersPage() {
                                     Requirements
                                   </h4>
                                   <ul className="space-y-1.5">
-                                    {career.requirements.map((req, i) => (
+                                    {career.requirements.map((req: any, i: any) => (
                                       <li key={i} className="flex items-start gap-2 text-sm text-[#1A1A1A]/50 font-light">
                                         <span className="w-1 h-1 rounded-full bg-[#C9A96E] mt-2 shrink-0" />
                                         {req}

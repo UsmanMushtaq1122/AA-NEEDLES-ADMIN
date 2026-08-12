@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   Plus,
   Pencil,
@@ -39,71 +41,10 @@ interface CMSPage {
   metaDescription: string;
 }
 
-const mockPages: CMSPage[] = [
-  {
-    id: "p1",
-    title: "About Us",
-    slug: "about-us",
-    content: "AA Neddles is a luxury fashion house rooted in the rich textile heritage of Pakistan. Founded with a vision to blend traditional craftsmanship with contemporary design, we create pieces that celebrate the modern Pakistani woman. Every stitch tells a story of heritage, quality, and timeless elegance.",
-    published: true,
-    lastUpdated: "2026-07-10T14:30:00",
-    metaTitle: "About AA Neddles — Luxury Fashion Pakistan",
-    metaDescription: "Discover the story behind AA Neddles, a luxury fashion house celebrating Pakistani textile heritage through contemporary design.",
-  },
-  {
-    id: "p2",
-    title: "Privacy Policy",
-    slug: "privacy-policy",
-    content: "At AA Neddles, we value your privacy and are committed to protecting your personal information. This Privacy Policy outlines how we collect, use, and safeguard the data you provide when using our website and services. By accessing our website, you agree to the practices described in this policy.",
-    published: true,
-    lastUpdated: "2026-06-15T10:00:00",
-    metaTitle: "Privacy Policy — AA Neddles",
-    metaDescription: "Learn how AA Neddles collects, uses, and protects your personal information.",
-  },
-  {
-    id: "p3",
-    title: "Terms & Conditions",
-    slug: "terms-conditions",
-    content: "These Terms and Conditions govern your use of the AA Neddles website and services. By placing an order on our website, you agree to be bound by these terms. Please read them carefully before making a purchase.",
-    published: true,
-    lastUpdated: "2026-06-15T10:00:00",
-    metaTitle: "Terms & Conditions — AA Neddles",
-    metaDescription: "Read the terms and conditions governing the use of AA Neddles website and services.",
-  },
-  {
-    id: "p4",
-    title: "Shipping Policy",
-    slug: "shipping-policy",
-    content: "AA Neddles offers complimentary shipping on all domestic orders above PKR 25,000. Standard delivery takes 3-5 business days within Pakistan. We also offer express delivery and international shipping to over 40 countries.",
-    published: true,
-    lastUpdated: "2026-07-05T09:15:00",
-    metaTitle: "Shipping Policy — AA Neddles",
-    metaDescription: "Learn about AA Neddles shipping options, delivery times, and international shipping policies.",
-  },
-  {
-    id: "p5",
-    title: "Return Policy",
-    slug: "return-policy",
-    content: "We want you to be completely satisfied with your purchase. If for any reason you're not, we accept returns within 14 days of delivery. Items must be unworn, unwashed, and in their original packaging with all tags attached.",
-    published: true,
-    lastUpdated: "2026-07-05T09:15:00",
-    metaTitle: "Return Policy — AA Neddles",
-    metaDescription: "Learn about the AA Neddles return and exchange policy.",
-  },
-  {
-    id: "p6",
-    title: "Care Guide",
-    slug: "care-guide",
-    content: "To preserve the beauty and longevity of your AA Neddles garments, we recommend following these care instructions. Hand wash delicate fabrics in cold water with mild detergent. Dry clean structured pieces. Store knitwear folded to prevent stretching.",
-    published: false,
-    lastUpdated: "2026-07-12T16:45:00",
-    metaTitle: "Garment Care Guide — AA Neddles",
-    metaDescription: "Expert tips on caring for your luxury AA Neddles garments.",
-  },
-];
-
 export default function PagesPage() {
-  const [pages, setPages] = useState(mockPages);
+  const [pages, setPages] = useState<CMSPage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPage, setEditingPage] = useState<CMSPage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -115,6 +56,14 @@ export default function PagesPage() {
     metaDescription: "",
     published: false,
   });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    api.get<any>("/pages")
+      .then((res) => setPages(res.data || []))
+      .catch(() => setPages([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = pages.filter(
     (p) =>
@@ -135,31 +84,34 @@ export default function PagesPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingPage) {
-      setPages((prev) =>
-        prev.map((p) =>
-          p.id === editingPage.id
-            ? {
-                ...p,
-                ...form,
-                lastUpdated: new Date().toISOString(),
-              }
-            : p
-        )
-      );
+  const handleSave = async () => {
+    setActionLoading("save");
+    try {
+      if (editingPage) {
+        await api.put(`/pages/${editingPage.id}`, form);
+        toast("success", "Page updated successfully");
+      }
+      const res = await api.get<any>("/pages");
+      setPages(res.data || []);
+      setDialogOpen(false);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to save page");
+    } finally {
+      setActionLoading(null);
     }
-    setDialogOpen(false);
   };
 
-  const togglePublished = (id: string) => {
-    setPages((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, published: !p.published, lastUpdated: new Date().toISOString() }
-          : p
-      )
-    );
+  const togglePublished = async (id: string) => {
+    const page = pages.find((p) => p.id === id);
+    if (!page) return;
+    try {
+      await api.put(`/pages/${id}`, { published: !page.published });
+      toast("success", "Status updated successfully");
+      const res = await api.get<any>("/pages");
+      setPages(res.data || []);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to toggle status");
+    }
   };
 
   const generateSlug = (title: string) => {
@@ -193,69 +145,83 @@ export default function PagesPage() {
           </div>
 
           <div className="space-y-3">
-            {filtered.map((page, index) => (
-              <motion.div
-                key={page.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-              >
-                <Card className="bg-white border-0 shadow-sm">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-[#F5F0EB] flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5 text-[#1A1A1A]/30" />
+            {pages.length === 0 ? (
+              <div className="text-center py-16">
+                <FileText className="w-12 h-12 mx-auto text-[#1A1A1A]/10 mb-4" />
+                <h3 className="text-lg font-light text-[#1A1A1A]/40 mb-1">No pages yet</h3>
+                <p className="text-sm text-[#1A1A1A]/25 font-light">CMS pages will appear here once created.</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-16">
+                <Search className="w-12 h-12 mx-auto text-[#1A1A1A]/10 mb-4" />
+                <h3 className="text-lg font-light text-[#1A1A1A]/40 mb-1">No matching pages</h3>
+                <p className="text-sm text-[#1A1A1A]/25 font-light">Try a different search term.</p>
+              </div>
+            ) : (
+              filtered.map((page, index) => (
+                <motion.div
+                  key={page.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                >
+                  <Card className="bg-white border-0 shadow-sm">
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-[#F5F0EB] flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5 text-[#1A1A1A]/30" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <h3 className="font-medium text-[#1A1A1A] text-sm">{page.title}</h3>
+                              <Badge
+                                className={cn(
+                                  "text-[9px] uppercase tracking-wider font-medium border",
+                                  page.published
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                    : "bg-stone-100 text-stone-400 border-stone-200"
+                                )}
+                              >
+                                {page.published ? "Published" : "Draft"}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-[#1A1A1A]/35 font-light">
+                              <span className="flex items-center gap-1">
+                                <Globe className="w-3 h-3" />
+                                /{page.slug}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatDateTime(page.lastUpdated)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#1A1A1A]/30 font-light mt-1 line-clamp-1">
+                              {page.content}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <h3 className="font-medium text-[#1A1A1A] text-sm">{page.title}</h3>
-                            <Badge
-                              className={cn(
-                                "text-[9px] uppercase tracking-wider font-medium border",
-                                page.published
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                  : "bg-stone-100 text-stone-400 border-stone-200"
-                              )}
-                            >
-                              {page.published ? "Published" : "Draft"}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-[#1A1A1A]/35 font-light">
-                            <span className="flex items-center gap-1">
-                              <Globe className="w-3 h-3" />
-                              /{page.slug}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {formatDateTime(page.lastUpdated)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-[#1A1A1A]/30 font-light mt-1 line-clamp-1">
-                            {page.content}
-                          </p>
+                        <div className="flex items-center gap-3 ml-4">
+                          <Switch
+                            checked={page.published}
+                            onCheckedChange={() => togglePublished(page.id)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-xs font-light gap-1.5"
+                            onClick={() => openEdit(page)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 ml-4">
-                        <Switch
-                          checked={page.published}
-                          onCheckedChange={() => togglePublished(page.id)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-3 text-xs font-light gap-1.5"
-                          onClick={() => openEdit(page)}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            )}
           </div>
         </motion.div>
       </div>
@@ -364,8 +330,8 @@ export default function PagesPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
-                Save Page
+              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide" disabled={actionLoading === "save"}>
+                {actionLoading === "save" ? "Saving..." : "Save Page"}
               </Button>
             </div>
           </div>

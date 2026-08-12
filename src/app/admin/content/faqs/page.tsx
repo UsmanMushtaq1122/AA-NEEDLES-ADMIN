@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/components/ui/toast";
 import {
   Plus,
   Pencil,
@@ -14,7 +15,9 @@ import {
   Search,
   Filter,
   X,
+  FolderOpen,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface FAQ {
   id: string;
@@ -46,96 +50,14 @@ interface FAQ {
   order: number;
 }
 
-const mockFAQs: FAQ[] = [
-  {
-    id: "f1",
-    question: "What are your shipping charges?",
-    answer: "We offer free shipping on all orders above PKR 25,000 within Pakistan. For orders below this threshold, a flat rate of PKR 500 applies. International shipping rates vary by destination and are calculated at checkout. Express delivery is available for an additional PKR 1,000.",
-    category: "Shipping",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "f2",
-    question: "How long does delivery take?",
-    answer: "Standard delivery within Pakistan takes 3-5 business days. Express delivery is available in major cities (Lahore, Karachi, Islamabad) and takes 1-2 business days. International orders typically arrive within 7-14 business days depending on the destination country.",
-    category: "Shipping",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "f3",
-    question: "Do you ship internationally?",
-    answer: "Yes, we ship to over 40 countries worldwide. International orders are shipped via DHL Express and include tracking. Please note that customs duties and import taxes are the responsibility of the customer and vary by country.",
-    category: "Shipping",
-    active: true,
-    order: 2,
-  },
-  {
-    id: "f4",
-    question: "What is your return policy?",
-    answer: "We accept returns within 14 days of delivery for unworn items in their original packaging with tags attached. Sale items are final sale and cannot be returned. To initiate a return, please contact our customer service team with your order number.",
-    category: "Returns",
-    active: true,
-    order: 3,
-  },
-  {
-    id: "f5",
-    question: "How do I exchange an item?",
-    answer: "Exchanges are available for a different size or color of the same item, subject to stock availability. Please contact us within 14 days of delivery. The item must be unworn, unwashed, and in its original packaging. We will arrange a pickup and send the replacement once we receive the original item.",
-    category: "Returns",
-    active: true,
-    order: 4,
-  },
-  {
-    id: "f6",
-    question: "When will I receive my refund?",
-    answer: "Refunds are processed within 5-7 business days after we receive and inspect the returned item. The refund will be credited to your original payment method. For cash on delivery orders, refunds are made via bank transfer — please provide your account details to our customer service team.",
-    category: "Returns",
-    active: true,
-    order: 5,
-  },
-  {
-    id: "f7",
-    question: "How do I find my size?",
-    answer: "Each product page includes a detailed size guide with measurements in both inches and centimeters. We recommend measuring yourself and comparing with our chart. If you're between sizes, we suggest sizing up for a more comfortable fit. Our customer service team is also available to help with sizing questions via WhatsApp at +92 321 1234567.",
-    category: "Sizing",
-    active: true,
-    order: 6,
-  },
-  {
-    id: "f8",
-    question: "Are your clothes true to size?",
-    answer: "Our clothing is designed to fit true to size according to our size chart. However, fit may vary slightly depending on the style and fabric. Each product page includes specific fit information (e.g., 'relaxed fit', 'tailored fit') to help you choose. When in doubt, our customer service team can provide personalized recommendations.",
-    category: "Sizing",
-    active: true,
-    order: 7,
-  },
-  {
-    id: "f9",
-    question: "Can I modify or cancel my order?",
-    answer: "Orders can be modified or cancelled within 2 hours of placement. After this window, our team begins processing and packing. Please contact us immediately via WhatsApp or email at support@aanneddles.com with your order number if you need to make changes.",
-    category: "Orders",
-    active: true,
-    order: 8,
-  },
-  {
-    id: "f10",
-    question: "What payment methods do you accept?",
-    answer: "We accept all major credit and debit cards (Visa, Mastercard), bank transfers, JazzCash, EasyPaisa, and cash on delivery (COD). For orders above PKR 100,000, we also offer installment plans through our banking partners. All online transactions are secured with 256-bit SSL encryption.",
-    category: "Orders",
-    active: true,
-    order: 9,
-  },
-  {
-    id: "f11",
-    question: "How do I track my order?",
-    answer: "Once your order is dispatched, you'll receive an SMS and email with a tracking number and link. You can also track your order by logging into your account and visiting the 'My Orders' section. For any delivery concerns, our team is available Monday to Saturday, 10 AM to 7 PM.",
-    category: "Orders",
-    active: false,
-    order: 10,
-  },
-];
+interface FAQCategory {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+
 
 const categoryConfig: Record<string, string> = {
   Shipping: "bg-blue-50 text-blue-600 border-blue-200",
@@ -145,22 +67,65 @@ const categoryConfig: Record<string, string> = {
 };
 
 export default function FAQsPage() {
-  const [faqs, setFaqs] = useState(mockFAQs);
+  const [faqs, setFaqs] = useState<any[]>([]);
+  const [dbCategories, setDbCategories] = useState<FAQCategory[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FAQ | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
   const [form, setForm] = useState({
     question: "",
     answer: "",
-    category: "Shipping",
+    category: "",
     active: true,
   });
 
-  const categories = [...new Set(faqs.map((f) => f.category))];
+  const fetchFAQs = useCallback(async () => {
+    try {
+      const res = await api.get<any>("/faqs");
+      setFaqs(res.data || []);
+    } catch (error) {
+      console.error("Failed to fetch FAQs", error);
+    }
+  }, []);
 
-  const filtered = faqs.filter((faq) => {
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await api.get<any>("/faq-categories");
+      setDbCategories(res.data || []);
+    } catch (error) {
+      console.error("Failed to fetch FAQ categories", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFAQs();
+    fetchCategories();
+  }, [fetchFAQs, fetchCategories]);
+
+  const defaultCategories: string[] = [
+    "ORDER",
+    "SHIPPING",
+    "RETURN",
+    "PAYMENTS",
+    "ACCOUNT",
+    "PRODUCTS",
+  ];
+
+  const categories: string[] = dbCategories.map((c) => c.name);
+
+  const allCategoryNames: string[] = Array.from(
+    new Set([
+      ...categories,
+      ...faqs.map((f: any) => f.category).filter(Boolean),
+      "Uncategorized",
+    ])
+  );
+
+  const filtered = faqs.filter((faq: any) => {
     const matchesCategory = filterCategory === "all" || faq.category === filterCategory;
     const matchesSearch =
       faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,14 +133,19 @@ export default function FAQsPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const groupedFAQs = categories.reduce((acc, cat) => {
-    acc[cat] = filtered.filter((f) => f.category === cat);
+  const groupedFAQs = allCategoryNames.reduce((acc: Record<string, any[]>, cat) => {
+    acc[cat] = filtered.filter((f: any) => (f.category || "Uncategorized") === cat);
     return acc;
-  }, {} as Record<string, FAQ[]>);
+  }, {} as Record<string, any[]>);
 
   const openAdd = () => {
     setEditingItem(null);
-    setForm({ question: "", answer: "", category: "Shipping", active: true });
+    setForm({
+      question: "",
+      answer: "",
+      category: categories[0] || defaultCategories[0] || "",
+      active: true,
+    });
     setDialogOpen(true);
   };
 
@@ -190,41 +160,68 @@ export default function FAQsPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setFaqs((prev) =>
-        prev.map((f) => (f.id === editingItem.id ? { ...f, ...form } : f))
-      );
-    } else {
-      setFaqs((prev) => [
-        ...prev,
-        {
-          id: `f${Date.now()}`,
+  const handleSave = async () => {
+    setActionLoading("save");
+    try {
+      if (editingItem) {
+        await api.put<any>(`/faqs/${editingItem.id}`, form);
+        toast("success", "FAQ updated successfully");
+      } else {
+        await api.post<any>("/faqs", {
           ...form,
-          order: prev.length,
-        },
-      ]);
+          sortOrder: faqs.length,
+        });
+        toast("success", "FAQ added successfully");
+      }
+      fetchFAQs();
+      setDialogOpen(false);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to save FAQ");
+    } finally {
+      setActionLoading(null);
     }
-    setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setFaqs((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, active: !f.active } : f))
-    );
+  const toggleActive = async (id: string) => {
+    const faq = faqs.find((f) => f.id === id);
+    if (!faq) return;
+    try {
+      await api.patch<any>(`/faqs/${id}`, { active: !faq.active });
+      toast("success", "Status updated successfully");
+      fetchFAQs();
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to toggle status");
+    }
   };
 
-  const moveItem = (id: string, direction: "up" | "down") => {
+  const moveItem = async (id: string, direction: "up" | "down") => {
     const idx = faqs.findIndex((f) => f.id === id);
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= faqs.length) return;
-    const newList = [...faqs];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    setFaqs(newList);
+
+    const currentItem = faqs[idx];
+    const swapItem = faqs[newIdx];
+
+    try {
+      await Promise.all([
+        api.put(`/faqs/${currentItem.id}`, { sortOrder: swapItem.order }),
+        api.put(`/faqs/${swapItem.id}`, { sortOrder: currentItem.order }),
+      ]);
+      toast("success", "Order updated successfully");
+      fetchFAQs();
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to update order");
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setFaqs((prev) => prev.filter((f) => f.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      await api.delete(`/faqs/${id}`);
+      toast("success", "FAQ deleted successfully");
+      fetchFAQs();
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to delete FAQ");
+    }
   };
 
   return (
@@ -236,10 +233,12 @@ export default function FAQsPage() {
               <h1 className="text-3xl font-light tracking-wide text-[#1A1A1A]">FAQs</h1>
               <p className="text-[#1A1A1A]/50 mt-1 font-light">{faqs.length} frequently asked questions</p>
             </div>
-            <Button onClick={openAdd} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
-              <Plus className="w-4 h-4 mr-2" />
-              Add FAQ
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={openAdd} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
+                <Plus className="w-4 h-4 mr-2" />
+                Add FAQ
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -265,7 +264,7 @@ export default function FAQsPage() {
               >
                 All
               </Button>
-              {categories.map((cat) => (
+              {allCategoryNames.map((cat) => (
                 <Button
                   key={cat}
                   variant={filterCategory === cat ? "default" : "outline"}
@@ -307,9 +306,17 @@ export default function FAQsPage() {
                       >
                         <Card className="bg-white border-0 shadow-sm">
                           <CardContent className="p-0">
-                            <button
-                              className="w-full text-left p-4 flex items-center gap-4 hover:bg-[#F5F0EB]/30 transition-colors rounded-lg"
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              className="w-full text-left p-4 flex items-center gap-4 hover:bg-[#F5F0EB]/30 transition-colors rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A]/20"
                               onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setExpandedId(expandedId === faq.id ? null : faq.id);
+                                }
+                              }}
                             >
                               <div className="flex items-center gap-2 shrink-0">
                                 <Button
@@ -355,7 +362,7 @@ export default function FAQsPage() {
                                   expandedId === faq.id && "rotate-90"
                                 )}
                               />
-                            </button>
+                            </div>
                             <AnimatePresence>
                               {expandedId === faq.id && (
                                 <motion.div
@@ -449,9 +456,14 @@ export default function FAQsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
+                  {defaultCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
+                  {categories
+                    .filter((cat) => !defaultCategories.includes(cat) && cat !== "Other")
+                    .map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -464,8 +476,12 @@ export default function FAQsPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
-                {editingItem ? "Save Changes" : "Add FAQ"}
+              <Button
+                onClick={handleSave}
+                className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
+                disabled={actionLoading === "save"}
+              >
+                {actionLoading === "save" ? "Saving..." : editingItem ? "Save Changes" : "Add FAQ"}
               </Button>
             </div>
           </div>

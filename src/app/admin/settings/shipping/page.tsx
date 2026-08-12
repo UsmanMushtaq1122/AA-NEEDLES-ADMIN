@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { shippingSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
+import { useEffect, useState, useCallback } from "react";
 
 type ShippingForm = {
   shippingCost: number;
@@ -20,36 +22,43 @@ type ShippingForm = {
   codEnabled: boolean;
 };
 
-const MOCK_SHIPPING: ShippingForm = {
-  shippingCost: 200,
-  expressShippingCost: 500,
-  freeShippingThreshold: 5000,
-  codFee: 50,
-  codEnabled: true,
-};
-
-function saveShipping(_data: ShippingForm): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
-}
-
 export default function ShippingSettingsPage() {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<ShippingForm>({
     resolver: zodResolver(shippingSchema) as any,
-    defaultValues: MOCK_SHIPPING,
+    defaultValues: {},
   });
+
+  const fetchShippingSettings = useCallback(async () => {
+    try {
+      const res: any = await api.get("/settings/shipping");
+      if (res.success && res.data?.shipping) {
+        reset(res.data.shipping);
+      }
+    } catch {
+      // setting not created yet, keep defaults
+    } finally {
+      setLoading(false);
+    }
+  }, [reset]);
+
+  useEffect(() => {
+    fetchShippingSettings();
+  }, [fetchShippingSettings]);
 
   const codEnabled = watch("codEnabled");
 
   const saveMutation = useMutation({
-    mutationFn: saveShipping,
+    mutationFn: (data: ShippingForm) => api.put("/settings/shipping", { value: data }),
     onSuccess: () => {
       toast("success", "Shipping settings saved successfully");
     },

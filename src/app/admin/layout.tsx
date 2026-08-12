@@ -17,7 +17,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const collapsed = useAppSelector((state) => state.ui.sidebarCollapsed);
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, hasPermission } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isPublicRoute = PUBLIC_PATHS.some(
@@ -28,7 +28,10 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     if (!isPublicRoute && !isLoading && !isAuthenticated) {
       router.push("/admin/login");
     }
-  }, [isAuthenticated, isLoading, router, isPublicRoute]);
+    if (!isPublicRoute && !isLoading && isAuthenticated && !hasPermission("all", "read")) {
+      router.push("/admin/login");
+    }
+  }, [isAuthenticated, isLoading, router, isPublicRoute, user, hasPermission]);
 
   // Public routes (login, forgot-password, reset-password) render directly
   // without auth guard or sidebar/header shell

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   Plus,
   Pencil,
@@ -17,6 +19,7 @@ import {
   Type,
   AlignLeft,
   Palette,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,111 +68,46 @@ interface AnnouncementBar {
   textColor: string;
 }
 
-const mockHeroBanners: HeroBanner[] = [
-  {
-    id: "hb1",
-    title: "Eid Ul Adha Collection",
-    subtitle: "Luxurious pieces crafted for the celebration",
-    imageUrl: "/banners/eid-collection.jpg",
-    link: "/collections/eid",
-    buttonText: "Shop Now",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "hb2",
-    title: "Summer Solstice",
-    subtitle: "Light fabrics, bold statements for the modern woman",
-    imageUrl: "/banners/summer.jpg",
-    link: "/collections/summer",
-    buttonText: "Explore",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "hb3",
-    title: "Bridal Couture 2026",
-    subtitle: "Where tradition meets contemporary elegance",
-    imageUrl: "/banners/bridal.jpg",
-    link: "/collections/bridal",
-    buttonText: "View Collection",
-    active: false,
-    order: 2,
-  },
-  {
-    id: "hb4",
-    title: "The Monsoon Edit",
-    subtitle: "Rainy day essentials in rich jewel tones",
-    imageUrl: "/banners/monsoon.jpg",
-    link: "/collections/monsoon",
-    buttonText: "Discover",
-    active: true,
-    order: 3,
-  },
-];
-
-const mockEditorialBanners: EditorialBanner[] = [
-  {
-    id: "eb1",
-    title: "Behind the Seams",
-    subtitle: "Meet our master artisans who bring each piece to life",
-    imageUrl: "/editorial/artisans.jpg",
-    link: "/editorial/artisans",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "eb2",
-    title: "The Art of Hand Embroidery",
-    subtitle: "A centuries-old craft preserved in modern luxury",
-    imageUrl: "/editorial/embroidery.jpg",
-    link: "/editorial/embroidery",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "eb3",
-    title: "Sustainability Report",
-    subtitle: "Our commitment to ethical fashion practices",
-    imageUrl: "/editorial/sustainability.jpg",
-    link: "/editorial/sustainability",
-    active: false,
-    order: 2,
-  },
-];
-
-const mockAnnouncements: AnnouncementBar[] = [
-  {
-    id: "ab1",
-    text: "Free delivery on orders above PKR 25,000",
-    link: "/shipping-info",
-    active: true,
-    bgColor: "#1A1A1A",
-    textColor: "#F5F0EB",
-  },
-  {
-    id: "ab2",
-    text: "Eid Sale — Up to 30% off select styles | Use code EID30",
-    link: "/sale",
-    active: true,
-    bgColor: "#8B1A1A",
-    textColor: "#F5F0EB",
-  },
-  {
-    id: "ab3",
-    text: "New arrivals just dropped — Explore the Summer 2026 collection",
-    link: "/collections/summer",
-    active: false,
-    bgColor: "#C9A96E",
-    textColor: "#1A1A1A",
-  },
-];
 
 export default function BannersPage() {
-  const [heroBanners, setHeroBanners] = useState(mockHeroBanners);
-  const [editorialBanners, setEditorialBanners] = useState(mockEditorialBanners);
-  const [announcements, setAnnouncements] = useState(mockAnnouncements);
+  const [heroBanners, setHeroBanners] = useState<any[]>([]);
+  const [editorialBanners, setEditorialBanners] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchBanners = useCallback(() => {
+    setLoading(true);
+    api.get<any>("/banners?all=true")
+      .then((res) => {
+        const banners = res.data || [];
+        const mapped = banners.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          subtitle: b.subtitle || "",
+          imageUrl: b.image || "",
+          link: b.link || "",
+          buttonText: b.buttonText || "",
+          active: b.isActive,
+          order: b.sortOrder,
+          text: b.title,
+          bgColor: b.bgColor || "#1A1A1A",
+          textColor: b.textColor || "#F5F0EB",
+          type: b.type || "hero",
+        }));
+        setHeroBanners(mapped.filter((b: any) => b.type === "hero"));
+        setEditorialBanners(mapped.filter((b: any) => b.type === "editorial"));
+        setAnnouncements(mapped.filter((b: any) => b.type === "announcement"));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchBanners();
+  }, [fetchBanners]);
   const [editingBanner, setEditingBanner] = useState<any>(null);
   const [dialogType, setDialogType] = useState<"hero" | "editorial" | "announcement">("hero");
   const [form, setForm] = useState({
@@ -183,6 +121,8 @@ export default function BannersPage() {
     bgColor: "#1A1A1A",
     textColor: "#F5F0EB",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
 
   const openAdd = (type: typeof dialogType) => {
     setEditingBanner(null);
@@ -198,6 +138,8 @@ export default function BannersPage() {
       bgColor: "#1A1A1A",
       textColor: "#F5F0EB",
     });
+    setSelectedFile(null);
+    setImagePreview("");
     setDialogOpen(true);
   };
 
@@ -223,88 +165,75 @@ export default function BannersPage() {
         buttonText: banner.buttonText || "",
         active: banner.active,
       });
+      setSelectedFile(null);
+      setImagePreview(banner.imageUrl || "");
     }
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (dialogType === "hero") {
-      if (editingBanner) {
-        setHeroBanners((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id ? { ...b, ...form } : b
-          )
-        );
-      } else {
-        setHeroBanners((prev) => [
-          ...prev,
-          {
-            id: `hb${Date.now()}`,
-            ...form,
-            order: prev.length,
-          },
-        ]);
-      }
-    } else if (dialogType === "editorial") {
-      if (editingBanner) {
-        setEditorialBanners((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id ? { ...b, ...form } : b
-          )
-        );
-      } else {
-        setEditorialBanners((prev) => [
-          ...prev,
-          {
-            id: `eb${Date.now()}`,
-            ...form,
-            order: prev.length,
-          },
-        ]);
-      }
-    } else {
-      if (editingBanner) {
-        setAnnouncements((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id
-              ? { ...b, text: form.text, link: form.link, active: form.active, bgColor: form.bgColor, textColor: form.textColor }
-              : b
-          )
-        );
-      } else {
-        setAnnouncements((prev) => [
-          ...prev,
-          {
-            id: `ab${Date.now()}`,
-            text: form.text,
-            link: form.link,
-            active: form.active,
-            bgColor: form.bgColor,
-            textColor: form.textColor,
-          },
-        ]);
-      }
-    }
-    setDialogOpen(false);
-  };
+  const handleSave = async () => {
+    setActionLoading("save");
 
-  const toggleActive = (id: string, type: "hero" | "editorial" | "announcement") => {
-    if (type === "hero") {
-      setHeroBanners((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
-    } else if (type === "editorial") {
-      setEditorialBanners((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
-    } else {
-      setAnnouncements((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
+    if (dialogType !== "announcement" && !selectedFile) {
+      toast("error", "Please upload an image");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("title", form.title);
+    formData.append("subtitle", form.subtitle);
+    formData.append("link", form.link);
+    formData.append("isActive", String(form.active));
+    formData.append("type", dialogType);
+    formData.append("bgColor", form.bgColor);
+    formData.append("textColor", form.textColor);
+    if (dialogType !== "announcement") {
+      formData.append("buttonText", form.buttonText);
+    }
+    if (dialogType === "announcement") {
+      formData.append("text", form.text);
+    }
+    if (selectedFile) {
+      formData.append("image", selectedFile);
+    } else if (form.imageUrl) {
+      formData.append("imageUrl", form.imageUrl);
+    }
+    if (!editingBanner) {
+      formData.append("sortOrder", String(dialogType === "hero" ? heroBanners.length : dialogType === "editorial" ? editorialBanners.length : 0));
+    }
+
+    try {
+      if (editingBanner) {
+        await api.upload(`/banners/${editingBanner.id}`, formData, "PUT");
+        toast("success", "Banner updated successfully");
+      } else {
+        await api.upload("/banners", formData, "POST");
+        toast("success", "Banner added successfully");
+      }
+      fetchBanners();
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast("error", err.message || "Failed to save banner");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const moveItem = (
+  const toggleActive = async (id: string, type: "hero" | "editorial" | "announcement") => {
+    const list = type === "hero" ? heroBanners : type === "editorial" ? editorialBanners : announcements;
+    const item = list.find((b) => b.id === id);
+    if (!item) return;
+
+    try {
+      await api.put(`/banners/${id}`, { isActive: !item.active });
+      toast("success", "Status updated successfully");
+      fetchBanners();
+    } catch (err: any) {
+      toast("error", err.message || "Failed to update status");
+    }
+  };
+
+  const moveItem = async (
     id: string,
     direction: "up" | "down",
     type: "hero" | "editorial"
@@ -314,16 +243,30 @@ export default function BannersPage() {
     if (idx === -1) return;
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= list.length) return;
-    const newList = [...list];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    if (type === "hero") setHeroBanners(newList as HeroBanner[]);
-    else setEditorialBanners(newList as EditorialBanner[]);
+
+    const currentItem = list[idx];
+    const swapItem = list[newIdx];
+
+    try {
+      await Promise.all([
+        api.put(`/banners/${currentItem.id}`, { sortOrder: swapItem.order }),
+        api.put(`/banners/${swapItem.id}`, { sortOrder: currentItem.order }),
+      ]);
+      toast("success", "Order updated successfully");
+      fetchBanners();
+    } catch (err: any) {
+      toast("error", err.message || "Failed to update order");
+    }
   };
 
-  const deleteItem = (id: string, type: "hero" | "editorial" | "announcement") => {
-    if (type === "hero") setHeroBanners((prev) => prev.filter((b) => b.id !== id));
-    else if (type === "editorial") setEditorialBanners((prev) => prev.filter((b) => b.id !== id));
-    else setAnnouncements((prev) => prev.filter((b) => b.id !== id));
+  const deleteItem = async (id: string, type: "hero" | "editorial" | "announcement") => {
+    try {
+      await api.delete(`/banners/${id}`);
+      toast("success", "Banner deleted successfully");
+      fetchBanners();
+    } catch (err: any) {
+      toast("error", err.message || "Failed to delete banner");
+    }
   };
 
   return (
@@ -372,11 +315,15 @@ export default function BannersPage() {
                   >
                     <Card className="bg-white border-0 shadow-sm overflow-hidden">
                       <CardContent className="p-0">
-                        <div className="flex">
-                          <div className="w-64 h-40 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
-                            <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
-                              <Image className="w-10 h-10 text-[#1A1A1A]/20" />
-                            </div>
+                        <div className="flex flex-col md:flex-row">
+                          <div className="w-full md:w-64 h-48 md:h-40 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
+                            {banner.imageUrl ? (
+                              <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover max-h-[240px]" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
+                                <Image className="w-10 h-10 text-[#1A1A1A]/20" />
+                              </div>
+                            )}
                           </div>
                           <div className="flex-1 p-5 flex flex-col justify-between">
                             <div>
@@ -471,10 +418,14 @@ export default function BannersPage() {
                     <Card className="bg-white border-0 shadow-sm overflow-hidden">
                       <CardContent className="p-0">
                         <div className="flex">
-                          <div className="w-80 h-48 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
-                            <div className="w-full h-full bg-gradient-to-br from-[#8B1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
-                              <Image className="w-12 h-12 text-[#1A1A1A]/15" />
-                            </div>
+                          <div className="w-full md:w-80 h-56 md:h-48 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
+                            {banner.imageUrl ? (
+                              <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover max-h-[320px]" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-[#8B1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
+                                <Image className="w-12 h-12 text-[#1A1A1A]/15" />
+                              </div>
+                            )}
                           </div>
                           <div className="flex-1 p-6 flex flex-col justify-between">
                             <div>
@@ -608,14 +559,14 @@ export default function BannersPage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-white border-0 max-w-lg">
+        <DialogContent className="bg-white border-0 max-w-lg md:max-w-3xl w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-light tracking-wide text-[#1A1A1A]">
               {editingBanner ? "Edit" : "Add"} {dialogType === "hero" ? "Hero Banner" : dialogType === "editorial" ? "Editorial Banner" : "Announcement"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 mt-2">
+          <div className="space-y-5 mt-2 max-h-[70vh] md:max-h-[72vh] overflow-y-auto pr-3">
             {dialogType === "announcement" ? (
               <>
                 <div>
@@ -716,15 +667,37 @@ export default function BannersPage() {
                 </div>
                 <div>
                   <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
-                    Image URL
+                    Banner Image
                   </label>
-                  <Input
-                    value={form.imageUrl}
-                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    placeholder="/banners/image.jpg or https://..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
-                  />
+                  <label className="flex items-center justify-center gap-2 border-2 border-dashed border-stone-200 rounded-lg p-4 cursor-pointer hover:border-[#C9A96E] transition-colors bg-[#F5F0EB]/40">
+                    <Upload className="w-4 h-4 text-[#1A1A1A]/40" />
+                    <span className="text-sm font-light text-[#1A1A1A]/60">
+                      {selectedFile ? selectedFile.name : "Click to upload image"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setSelectedFile(file);
+                        if (file) {
+                          setImagePreview(URL.createObjectURL(file));
+                        } else {
+                          setImagePreview("");
+                        }
+                      }}
+                    />
+                  </label>
+                  {imagePreview && (
+                    <img
+                      src={imagePreview}
+                      alt="Banner preview"
+                      className="mt-3 w-full h-48 md:h-40 object-cover rounded-lg border border-stone-200"
+                    />
+                  )}
                 </div>
+                {/* Image URL input removed per request */}
                 <div>
                   <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
                     Link URL
@@ -771,8 +744,9 @@ export default function BannersPage() {
               <Button
                 onClick={handleSave}
                 className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
+                disabled={actionLoading === "save"}
               >
-                {editingBanner ? "Save Changes" : "Add Banner"}
+                {actionLoading === "save" ? "Saving..." : editingBanner ? "Save Changes" : "Add Banner"}
               </Button>
             </div>
           </div>

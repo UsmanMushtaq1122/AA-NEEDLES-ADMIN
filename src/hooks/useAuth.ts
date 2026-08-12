@@ -4,29 +4,55 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { setCredentials, setLoading } from "@/store/slices/authSlice";
-import { User } from "@/types";
+import { api } from "@/lib/api";
 
-// ─── Mock Admin Credentials ────────────────────────────────────────────────
-// WARNING: These are MOCK credentials for development ONLY.
-// Remove this entire block and replace with real backend authentication
-// before deploying to production. Never hardcode credentials in source.
-const MOCK_CREDENTIALS = [
-  { email: "admin@neddles.com",    password: "password123", role: "super_admin" as const },
-  { email: "admin@aanneddles.com", password: "admin123",    role: "super_admin" as const },
-];
-
-const MOCK_TOKEN = "mock-access-token-aa-neddles-2026";
-
-// Helpers: cookie r/w so the middleware (server-side) can see the token
 function setCookie(name: string, value: string, days = 7) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Strict${secure}`;
 }
+
 function deleteCookie(name: string) {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
 }
-// ───────────────────────────────────────────────────────────────────────────
+
+function getJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64url = token.split(".")[1];
+    const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = getJwtPayload(token);
+  if (!payload || !payload.exp) return true;
+  return Date.now() >= (payload.exp as number) * 1000;
+}
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function clearStoredAuth() {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+  localStorage.removeItem("rememberMe");
+  deleteCookie("accessToken");
+  deleteCookie("refreshToken");
+}
+
+const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN"]);
+
+function normalizeRole(role: unknown): string {
+  return typeof role === "string" ? role.toUpperCase() : "";
+}
 
 export function useAuth() {
   const dispatch = useAppDispatch();
@@ -35,92 +61,91 @@ export function useAuth() {
   );
   const router = useRouter();
 
-  // On mount: restore session from localStorage
   useEffect(() => {
     const initAuth = () => {
       try {
-        const storedToken = localStorage.getItem("accessToken");
-        const storedUser  = localStorage.getItem("user");
+        const tokenCookie = getCookie("accessToken");
+        const storedUser = localStorage.getItem("user");
 
-        if (storedToken && storedUser) {
-          const parsedUser: User = JSON.parse(storedUser);
-          dispatch(
-            setCredentials({
-              user: parsedUser,
-              accessToken: storedToken,
-              refreshToken: localStorage.getItem("refreshToken") || "",
-            })
-          );
-          return;
+        if (tokenCookie && !isTokenExpired(tokenCookie)) {
+          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+          const role = normalizeRole(parsedUser?.role);
+
+          if (parsedUser && ADMIN_ROLES.has(role)) {
+            dispatch(
+              setCredentials({
+                user: { ...parsedUser, role },
+                accessToken: tokenCookie,
+                refreshToken: getCookie("refreshToken") || "",
+              })
+            );
+            return;
+          }
         }
       } catch {
-        // corrupt data — clear everything
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        deleteCookie("accessToken");
+        // malformed data — clear and proceed
       }
+      clearStoredAuth();
       dispatch(setLoading(false));
     };
 
     initAuth();
   }, [dispatch]);
 
-  // ── Login ──────────────────────────────────────────────────────────────
-  const login = async (email: string, password: string) => {
-    // Simulate a short network delay
-    await new Promise((r) => setTimeout(r, 500));
+  const login = async (email: string, password: string, rememberMe = false) => {
+    const response = await api.post<{
+      success: boolean;
+      data: { user: any; token: string; refreshToken: string };
+      message?: string;
+    }>("/auth/login", { email, password });
 
-    const match = MOCK_CREDENTIALS.find(
-      (c) =>
-        c.email.toLowerCase() === email.toLowerCase() &&
-        c.password === password
-    );
-
-    if (!match) {
-      throw new Error(
-        "Invalid email or password. Please check your credentials and try again."
-      );
+    if (!response.success || !response.data) {
+      throw new Error(response.message || "Login failed");
     }
 
-    const mockUser: User = {
-      id: "admin-001",
-      name: "Admin",
-      email: match.email,
-      role: match.role,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    };
+    const { user: userData, token, refreshToken } = response.data;
+    const role = normalizeRole(userData?.role);
 
-    const token        = MOCK_TOKEN;
-    const refreshToken = "mock-refresh-token";
+    if (!ADMIN_ROLES.has(role)) {
+      clearStoredAuth();
+      throw new Error("This account does not have admin access.");
+    }
 
-    // Persist in localStorage (client reads) AND cookie (middleware reads)
-    localStorage.setItem("accessToken",  token);
+    localStorage.setItem("accessToken", token);
     localStorage.setItem("refreshToken", refreshToken);
-    localStorage.setItem("user",         JSON.stringify(mockUser));
-    setCookie("accessToken", token, 7);
+    localStorage.setItem("user", JSON.stringify({ ...userData, role }));
+    if (rememberMe) {
+      localStorage.setItem("rememberMe", "true");
+    } else {
+      localStorage.removeItem("rememberMe");
+    }
+    setCookie("accessToken", token, rememberMe ? 30 : 1);
+    setCookie("refreshToken", refreshToken, rememberMe ? 30 : 1);
 
-    dispatch(setCredentials({ user: mockUser, accessToken: token, refreshToken }));
-    return { user: mockUser, accessToken: token, refreshToken };
+    dispatch(setCredentials({ user: { ...userData, role }, accessToken: token, refreshToken }));
+    return { user: { ...userData, role }, accessToken: token, refreshToken };
   };
 
-  // ── Logout ─────────────────────────────────────────────────────────────
-  const logout = (queryClient?: { clear: () => void }) => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    deleteCookie("accessToken");
+  const logout = async (queryClient?: { clear: () => void }) => {
+    try {
+      await api.post("/auth/logout");
+    } catch {}
+    clearStoredAuth();
     dispatch({ type: "auth/logout" });
     queryClient?.clear();
     router.push("/admin/login");
   };
 
-  // ── Permission check ───────────────────────────────────────────────────
-  const hasPermission = (_resource: string, _action: string): boolean => {
+  const ROLE_PERMISSIONS_MAP: Record<string, { resource: string; actions: string[] }[]> = {
+    SUPER_ADMIN: [{ resource: "all", actions: ["create", "read", "update", "delete"] }],
+    ADMIN: [{ resource: "all", actions: ["create", "read", "update", "delete"] }],
+  };
+
+  const hasPermission = (resource: string, action: string): boolean => {
     if (!user) return false;
-    if (user.role === "super_admin") return true;
-    return false;
+    const perms = ROLE_PERMISSIONS_MAP[normalizeRole(user.role)];
+    if (!perms) return false;
+    return perms.some((p) => (p.resource === "all" || p.resource === resource) && p.actions.includes(action));
   };
 
   return { user, isAuthenticated, isLoading, accessToken, login, logout, hasPermission };

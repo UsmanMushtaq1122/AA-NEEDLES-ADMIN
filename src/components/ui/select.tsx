@@ -12,6 +12,42 @@ export interface SelectProps
   onValueChange?: (value: string) => void;
 }
 
+/**
+ * Recursively collect all <option> elements from children,
+ * skipping wrapper components like SelectContent, SelectTrigger, SelectValue.
+ */
+function collectOptions(children: React.ReactNode): React.ReactNode[] {
+  const options: React.ReactNode[] = [];
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+
+    // If it's a native <option>, keep it
+    if (child.type === "option") {
+      options.push(child);
+      return;
+    }
+
+    // If it's SelectItem (renders <option>), keep the rendered output
+    // SelectItem returns <option value={...}>{children}</option>
+    const childType = child.type as any;
+    if (childType?.displayName === "SelectItem" || childType === SelectItem) {
+      const val = (child.props as any).value
+      options.push(
+        <option key={val} value={val}>
+          {(child.props as any).children}
+        </option>
+      );
+      return;
+    }
+
+    // For wrapper components (SelectContent, SelectTrigger, fragments), recurse
+    if ((child.props as any)?.children) {
+      options.push(...collectOptions((child.props as any).children));
+    }
+  });
+  return options;
+}
+
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, placeholder, children, id, onValueChange, onChange, ...props }, ref) => {
     const selectId = id || label?.toLowerCase().replace(/\s+/g, "-");
@@ -19,6 +55,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       onChange?.(e);
       onValueChange?.(e.target.value);
     };
+
+    // Collect only valid <option> elements from all children
+    const options = collectOptions(children);
+
     return (
       <div className="w-full">
         {label && (
@@ -46,14 +86,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 {placeholder}
               </option>
             )}
-            {React.Children.map(children, (child) => {
-              if (React.isValidElement<{ className?: string }>(child)) {
-                return React.cloneElement(child, {
-                  className: cn("bg-white text-[#1A1A1A]", child.props.className),
-                });
-              }
-              return child;
-            })}
+            {options}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
@@ -75,5 +108,7 @@ function SelectContent({ children, className }: { children: React.ReactNode; cla
 function SelectItem({ value, children, className }: { value: string; children: React.ReactNode; className?: string }) {
   return <option value={value}>{children}</option>;
 }
+SelectItem.displayName = "SelectItem";
 
 export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };
+

@@ -11,68 +11,44 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductForm } from "@/components/products/product-form";
 import { useToast } from "@/components/ui/toast";
+import { api, ApiError } from "@/lib/api";
 import type { Product } from "@/types";
 
-const MOCK_PRODUCT: Product = {
-  id: "prod-1",
-  name: "Silk Embroidered Kurti",
-  slug: "silk-embroidered-kurti",
-  description:
-    "Exquisite silk kurti featuring intricate hand embroidery. Crafted from premium mulberry silk with detailed thread work on the neckline and sleeves. A timeless piece for the modern woman who appreciates artisanal craftsmanship.",
-  shortDescription: "Premium hand-embroidered silk kurti",
-  price: 4500,
-  compareAtPrice: 5000,
-  costPrice: 2500,
-  sku: "AA-0001",
-  barcode: "629000000001",
-  stock: 45,
-  lowStockThreshold: 5,
-  weight: 0.5,
-  status: "active",
-  isFeatured: true,
-  isNewArrival: false,
-  isBestSeller: true,
-  images: [
-    { id: "img-1", url: "/placeholder.jpg", alt: "Silk Kurti Front", sortOrder: 0 },
-    { id: "img-2", url: "/placeholder.jpg", alt: "Silk Kurti Detail", sortOrder: 1 },
-  ],
-  categories: [
-    { id: "1", name: "Kurtis", slug: "kurtis", sortOrder: 0, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-    { id: "4", name: "Dupattas", slug: "dupattas", sortOrder: 3, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  ],
-  tags: ["silk", "handmade", "premium", "bestseller"],
-  seoTitle: "Silk Embroidered Kurti | AA Neddles",
-  seoDescription:
-    "Shop our premium hand-embroidered silk kurti. Exquisite craftsmanship meets modern elegance.",
-  createdAt: "2026-01-15T00:00:00.000Z",
-  updatedAt: "2026-07-10T00:00:00.000Z",
-};
+function toProductPayload(data: Record<string, unknown>) {
+  const { categoryIds, ...rest } = data;
+  const selectedCategoryIds = Array.isArray(categoryIds) ? categoryIds : [];
 
-function fetchProduct(_id: string): Promise<Product> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_PRODUCT), 600);
-  });
+  return {
+    ...rest,
+    categoryId: selectedCategoryIds[0],
+  };
 }
 
-function updateProduct(_id: string, _data: Record<string, unknown>): Promise<{ success: boolean }> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve({ success: true }), 1000);
-  });
+async function fetchProduct(id: string): Promise<Product> {
+  const res = await api.get<any>(`/products/${id}`);
+  return res.data;
 }
 
-function deleteProduct(_id: string): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 800);
-  });
+async function updateProduct(id: string, data: Record<string, unknown>): Promise<{ success: boolean }> {
+  await api.put(`/products/${id}`, data);
+  return { success: true };
 }
 
-function duplicateProduct(_id: string): Promise<{ success: boolean; data: Product }> {
-  return new Promise((resolve) => {
-    setTimeout(
-      () => resolve({ success: true, data: { ...MOCK_PRODUCT, id: "new-dup-id", name: "Silk Embroidered Kurti (Copy)" } }),
-      800
-    );
-  });
+async function deleteProduct(id: string): Promise<void> {
+  await api.delete(`/products/${id}`);
+}
+
+async function duplicateProduct(id: string): Promise<{ success: boolean; data: Product }> {
+  const res = await api.get<any>(`/products/${id}`);
+  const product = res.data;
+  const duplicated = await api.post<any>(
+    "/products",
+    toProductPayload({
+      ...product,
+      name: `${product.name} (Copy)`,
+    })
+  );
+  return { success: true, data: duplicated.data };
 }
 
 export default function EditProductPage() {
@@ -95,8 +71,18 @@ export default function EditProductPage() {
       toast("success", "Product updated successfully");
       router.push("/admin/products");
     },
-    onError: () => {
-      toast("error", "Failed to update product");
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          toast("error", "This product already exists.");
+        } else if (err.status === 400) {
+          toast("error", err.message || "Please fill in all required fields.");
+        } else {
+          toast("error", "Something went wrong. Please try again.");
+        }
+      } else {
+        toast("error", "Something went wrong. Please try again.");
+      }
     },
   });
 
@@ -166,7 +152,7 @@ export default function EditProductPage() {
 
       <ProductForm
         initialData={product}
-        onSubmit={(data) => updateMutation.mutate(data)}
+        onSubmit={(data) => updateMutation.mutate(toProductPayload(data as Record<string, unknown>))}
         isLoading={updateMutation.isPending}
       />
 

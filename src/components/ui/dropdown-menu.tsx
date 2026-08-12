@@ -60,7 +60,12 @@ function DropdownMenuTrigger({
     }
   };
 
-  if (asChild && React.isValidElement<{ className?: string }>(children)) {
+  const childIsButton =
+    React.isValidElement<{ type?: unknown }>(children) &&
+    typeof children.type === "string" &&
+    children.type === "button";
+
+  if (React.isValidElement<{ className?: string }>(children) && (asChild || childIsButton)) {
     return React.cloneElement(children, {
       onClick: handleClick,
       "aria-expanded": open,

@@ -20,243 +20,75 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { RevenueChart } from "@/components/charts/revenue-chart";
 import { OrdersChart } from "@/components/charts/orders-chart";
+import { CustomerChart } from "@/components/charts/customer-chart";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import type { DashboardAnalytics } from "@/types";
-
-function generateDateArray(days: number) {
-  return Array.from({ length: days }, (_, i) => {
-    const date = subDays(new Date(), days - 1 - i);
-    return format(date, "yyyy-MM-dd");
-  });
-}
+import { api } from "@/lib/api";
+import type { DashboardAnalytics, Order, DashboardStats } from "@/types";
 
 function useDashboardData() {
   return useQuery<DashboardAnalytics>({
     queryKey: ["dashboard-analytics"],
     queryFn: async () => {
-      const dates = generateDateArray(30);
+      const [statsRes, recentOrdersRes, salesRes, customerGrowthRes] = await Promise.all([
+        api.get<{ success: boolean; data: DashboardStats }>("/dashboard/stats"),
+        api.get<{ success: boolean; data: Order[] }>("/dashboard/recent-orders"),
+        api.get<{ success: boolean; data: { date: string; orderCount: number; revenue: number }[] }>("/dashboard/sales"),
+        api.get<{ success: boolean; data: { date: string; customers: number }[] }>("/dashboard/customer-growth"),
+      ]);
 
-      const revenueData = dates.map((date) => ({
+      const stats = statsRes.data || {};
+      const recentOrders = recentOrdersRes.data || [];
+      const salesData = salesRes.data || [];
+      const customerGrowthData = customerGrowthRes.data || [];
+
+      const salesMap = new Map<string, { revenue: number; orders: number }>();
+      for (const entry of salesData) {
+        salesMap.set(entry.date, { revenue: entry.revenue, orders: entry.orderCount });
+      }
+
+      const customerMap = new Map<string, number>();
+      for (const entry of customerGrowthData) {
+        customerMap.set(entry.date, entry.customers);
+      }
+
+      const dates = Array.from({ length: 30 }, (_, i) => {
+        const date = subDays(new Date(), 29 - i);
+        return format(date, "yyyy-MM-dd");
+      });
+
+      const revenueChart = dates.map((date) => ({
         date,
-        revenue: Math.floor(120000 + Math.random() * 280000),
+        revenue: salesMap.get(date)?.revenue ?? 0,
       }));
 
-      const ordersData = dates.map((date) => ({
+      const ordersChart = dates.map((date) => ({
         date,
-        orders: Math.floor(15 + Math.random() * 60),
+        orders: salesMap.get(date)?.orders ?? 0,
       }));
 
       const customerData = dates.map((date) => ({
         date,
-        customers: Math.floor(5 + Math.random() * 25),
+        customers: customerMap.get(date) ?? 0,
       }));
 
-      const recentOrders = [
-        {
-          id: "1",
-          orderNumber: "AA-2026-1847",
-          customer: { name: "Ayesha Khan", id: "c1", email: "ayesha@email.com", isActive: true, totalOrders: 12, totalSpent: 89500, addresses: [], createdAt: "", lastOrderAt: "" },
-          customerId: "c1",
-          items: [],
-          subtotal: 24500,
-          shippingCost: 200,
-          discount: 0,
-          codFee: 0,
-          total: 24700,
-          status: "delivered" as const,
-          paymentStatus: "paid" as const,
-          paymentMethod: "cod",
-          shippingAddress: { label: "Home", fullName: "Ayesha Khan", phone: "0321-1234567", addressLine1: "House 12, Street 5", city: "Lahore", province: "Punjab", country: "Pakistan" },
-          statusHistory: [],
-          createdAt: subDays(new Date(), 0).toISOString(),
-          updatedAt: subDays(new Date(), 0).toISOString(),
-        },
-        {
-          id: "2",
-          orderNumber: "AA-2026-1846",
-          customer: { name: "Fatima Malik", id: "c2", email: "fatima@email.com", isActive: true, totalOrders: 8, totalSpent: 56200, addresses: [], createdAt: "", lastOrderAt: "" },
-          customerId: "c2",
-          items: [],
-          subtotal: 18900,
-          shippingCost: 200,
-          discount: 500,
-          codFee: 0,
-          total: 18600,
-          status: "shipped" as const,
-          paymentStatus: "paid" as const,
-          paymentMethod: "cod",
-          shippingAddress: { label: "Home", fullName: "Fatima Malik", phone: "0300-9876543", addressLine1: "Flat 4B, Clifton Towers", city: "Karachi", province: "Sindh", country: "Pakistan" },
-          statusHistory: [],
-          createdAt: subDays(new Date(), 1).toISOString(),
-          updatedAt: subDays(new Date(), 1).toISOString(),
-        },
-        {
-          id: "3",
-          orderNumber: "AA-2026-1845",
-          customer: { name: "Sana Riaz", id: "c3", email: "sana@email.com", isActive: true, totalOrders: 5, totalSpent: 34100, addresses: [], createdAt: "", lastOrderAt: "" },
-          customerId: "c3",
-          items: [],
-          subtotal: 32400,
-          shippingCost: 0,
-          discount: 1000,
-          codFee: 0,
-          total: 31400,
-          status: "processing" as const,
-          paymentStatus: "paid" as const,
-          paymentMethod: "bank_transfer",
-          shippingAddress: { label: "Home", fullName: "Sana Riaz", phone: "0311-5551234", addressLine1: "23-A, DHA Phase 5", city: "Lahore", province: "Punjab", country: "Pakistan" },
-          statusHistory: [],
-          createdAt: subDays(new Date(), 1).toISOString(),
-          updatedAt: subDays(new Date(), 1).toISOString(),
-        },
-        {
-          id: "4",
-          orderNumber: "AA-2026-1844",
-          customer: { name: "Hira Ahmed", id: "c4", email: "hira@email.com", isActive: true, totalOrders: 3, totalSpent: 21800, addresses: [], createdAt: "", lastOrderAt: "" },
-          customerId: "c4",
-          items: [],
-          subtotal: 15600,
-          shippingCost: 200,
-          discount: 0,
-          codFee: 0,
-          total: 15800,
-          status: "pending" as const,
-          paymentStatus: "pending" as const,
-          paymentMethod: "cod",
-          shippingAddress: { label: "Home", fullName: "Hira Ahmed", phone: "0333-2223344", addressLine1: "House 7, F-8/2", city: "Islamabad", province: "Islamabad", country: "Pakistan" },
-          statusHistory: [],
-          createdAt: subDays(new Date(), 2).toISOString(),
-          updatedAt: subDays(new Date(), 2).toISOString(),
-        },
-        {
-          id: "5",
-          orderNumber: "AA-2026-1843",
-          customer: { name: "Zainab Hussain", id: "c5", email: "zainab@email.com", isActive: true, totalOrders: 15, totalSpent: 112400, addresses: [], createdAt: "", lastOrderAt: "" },
-          customerId: "c5",
-          items: [],
-          subtotal: 42100,
-          shippingCost: 0,
-          discount: 2000,
-          codFee: 0,
-          total: 40100,
-          status: "delivered" as const,
-          paymentStatus: "paid" as const,
-          paymentMethod: "card",
-          shippingAddress: { label: "Home", fullName: "Zainab Hussain", phone: "0345-6667788", addressLine1: "15, Cavalry Ground", city: "Lahore", province: "Punjab", country: "Pakistan" },
-          statusHistory: [],
-          createdAt: subDays(new Date(), 3).toISOString(),
-          updatedAt: subDays(new Date(), 3).toISOString(),
-        },
-      ];
-
-      const lowStockProducts = [
-        {
-          id: "p1",
-          name: "Noir Velvet Maxi - Emerald",
-          slug: "noir-velvet-maxi-emerald",
-          description: "",
-          price: 12500,
-          sku: "NV-EM-001",
-          stock: 3,
-          lowStockThreshold: 10,
-          status: "active" as const,
-          isFeatured: true,
-          isNewArrival: false,
-          isBestSeller: true,
-          images: [],
-          categories: [],
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
-        },
-        {
-          id: "p2",
-          name: "Gold Zari Bridal Lehnga",
-          slug: "gold-zari-bridal-lehnga",
-          description: "",
-          price: 45000,
-          sku: "GZ-BL-012",
-          stock: 2,
-          lowStockThreshold: 5,
-          status: "active" as const,
-          isFeatured: true,
-          isNewArrival: false,
-          isBestSeller: true,
-          images: [],
-          categories: [],
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
-        },
-        {
-          id: "p3",
-          name: "Chiffon Palace Suit - Ivory",
-          slug: "chiffon-palace-suit-ivory",
-          description: "",
-          price: 8900,
-          sku: "CP-IV-034",
-          stock: 4,
-          lowStockThreshold: 8,
-          status: "active" as const,
-          isFeatured: false,
-          isNewArrival: true,
-          isBestSeller: false,
-          images: [],
-          categories: [],
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
-        },
-        {
-          id: "p4",
-          name: "Raw Silk Kurti - Maroon",
-          slug: "raw-silk-kurti-maroon",
-          description: "",
-          price: 5200,
-          sku: "RS-KM-019",
-          stock: 1,
-          lowStockThreshold: 10,
-          status: "active" as const,
-          isFeatured: false,
-          isNewArrival: false,
-          isBestSeller: true,
-          images: [],
-          categories: [],
-          tags: [],
-          createdAt: "",
-          updatedAt: "",
-        },
-      ];
-
       return {
-        totalRevenue: 7845200,
-        totalOrders: 1247,
-        totalCustomers: 3892,
-        activeProducts: 186,
-        averageOrderValue: 6291,
-        conversionRate: 3.8,
-        pendingOrders: 23,
-        revenueChart: revenueData,
-        ordersChart: ordersData,
+        totalRevenue: stats.totalRevenue || 0,
+        totalOrders: stats.totalOrders || 0,
+        totalCustomers: stats.totalCustomers || 0,
+        activeProducts: stats.activeProducts || 0,
+        averageOrderValue: stats.averageOrderValue || 0,
+        conversionRate: stats.conversionRate || 0,
+        pendingOrders: stats.pendingOrders || 0,
+        revenueChart,
+        ordersChart,
         customerGrowth: customerData,
-        topProducts: [
-          { name: "Noir Velvet Maxi Collection", sold: 342, revenue: 4275000 },
-          { name: "Gold Zari Bridal Series", sold: 128, revenue: 5760000 },
-          { name: "Chiffon Palace Suits", sold: 276, revenue: 2456400 },
-          { name: "Raw Silk Pret Line", sold: 198, revenue: 1029600 },
-          { name: "Embroidered Lawn Vol.3", sold: 445, revenue: 3115000 },
-        ],
-        categoryPerformance: [
-          { name: "Bridal", products: 24, revenue: 3200000 },
-          { name: "Pret", products: 48, revenue: 2100000 },
-          { name: "Formal", products: 36, revenue: 1800000 },
-          { name: "Luxury Lawn", products: 42, revenue: 1400000 },
-          { name: "Accessories", products: 36, revenue: 600000 },
-        ],
+        topProducts: stats.topProducts || [],
+        categoryPerformance: stats.categoryPerformance || [],
         recentOrders,
-        lowStockProducts,
+        lowStockProducts: stats.lowStockProducts || [],
       };
     },
+    refetchInterval: 60000,
   });
 }
 
@@ -274,7 +106,7 @@ const item = {
 } as const;
 
 export default function AdminDashboardPage() {
-  const { data, isLoading } = useDashboardData();
+  const { data, isLoading, isError, error } = useDashboardData();
 
   const kpiCards = useMemo(() => {
     if (!data) return [];
@@ -282,7 +114,7 @@ export default function AdminDashboardPage() {
       {
         label: "Total Revenue",
         value: formatCurrency(data.totalRevenue),
-        change: 12.5,
+        change: null,
         icon: DollarSign,
         accent: "bg-[#C9A96E]/10 text-[#7A6543]",
         ring: "ring-[#C9A96E]/20",
@@ -290,7 +122,7 @@ export default function AdminDashboardPage() {
       {
         label: "Total Orders",
         value: formatNumber(data.totalOrders),
-        change: 8.2,
+        change: null,
         icon: ShoppingCart,
         accent: "bg-blue-50 text-blue-600",
         ring: "ring-blue-200",
@@ -298,7 +130,7 @@ export default function AdminDashboardPage() {
       {
         label: "Total Customers",
         value: formatNumber(data.totalCustomers),
-        change: 15.3,
+        change: null,
         icon: Users,
         accent: "bg-emerald-50 text-emerald-600",
         ring: "ring-emerald-200",
@@ -333,6 +165,19 @@ export default function AdminDashboardPage() {
             <div key={i} className="h-96 rounded-xl bg-gray-200 animate-pulse" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <AlertTriangle className="h-12 w-12 text-red-400 mb-4" />
+        <h2 className="font-['Playfair_Display'] text-xl font-semibold text-[#1A1A1A] mb-2">Failed to load dashboard</h2>
+        <p className="text-sm text-gray-500 mb-6">{(error as Error)?.message || 'An unexpected error occurred'}</p>
+        <button onClick={() => window.location.reload()} className="px-6 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold hover:bg-[#333] transition-colors">
+          Retry
+        </button>
       </div>
     );
   }
@@ -384,7 +229,7 @@ export default function AdminDashboardPage() {
         ))}
       </motion.div>
 
-      <motion.div variants={item} className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <motion.div variants={item} className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="font-['Playfair_Display'] text-lg">Revenue Trend</CardTitle>
@@ -401,6 +246,15 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <OrdersChart data={data.ordersChart} />
+          </CardContent>
+        </Card>
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-['Playfair_Display'] text-lg">Customer Growth</CardTitle>
+            <p className="text-sm text-gray-500">Last 30 days</p>
+          </CardHeader>
+          <CardContent>
+            <CustomerChart data={data.customerGrowth} />
           </CardContent>
         </Card>
       </motion.div>

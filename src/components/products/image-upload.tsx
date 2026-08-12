@@ -10,23 +10,39 @@ interface ImageUploadProps {
   maxImages?: number;
 }
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 function ImageUpload({
   images,
   onChange,
   maxImages = 8,
 }: ImageUploadProps) {
   const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState("");
 
   const addImages = useCallback(
     (files: FileList | File[]) => {
       const remaining = maxImages - images.length;
+      const oversized = Array.from(files).filter(
+        (f) => f.size > MAX_FILE_SIZE
+      );
+      if (oversized.length > 0) {
+        setError(
+          `${oversized.length} file(s) skipped — maximum file size is 10MB.`
+        );
+      } else {
+        setError("");
+      }
       const newImages = Array.from(files)
+        .filter((f) => f.size <= MAX_FILE_SIZE)
         .slice(0, remaining)
         .map((file) => ({
           url: URL.createObjectURL(file),
           alt: file.name.replace(/\.[^/.]+$/, ""),
         }));
-      onChange([...images, ...newImages]);
+      if (newImages.length > 0) {
+        onChange([...images, ...newImages]);
+      }
     },
     [images, onChange, maxImages]
   );
@@ -172,6 +188,10 @@ function ImageUpload({
             className="hidden"
           />
         </div>
+      )}
+
+      {error && (
+        <p className="text-xs font-medium text-amber-600">{error}</p>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "admin" | "staff" | "content_manager";
+export type Role = "ADMIN" | "SUPER_ADMIN" | "STAFF" | "CONTENT_MANAGER" | "CUSTOMER";
 
 export interface User {
   id: string;
@@ -39,6 +39,7 @@ export interface Product {
   isBestSeller: boolean;
   images: ProductImage[];
   categories: Category[];
+  categoryId?: string;
   variants?: ProductVariant[];
   seoTitle?: string;
   seoDescription?: string;
@@ -331,6 +332,19 @@ export interface SiteSettings {
   };
 }
 
+export interface DashboardStats {
+  totalRevenue: number;
+  totalOrders: number;
+  totalCustomers: number;
+  activeProducts: number;
+  averageOrderValue: number;
+  conversionRate: number;
+  pendingOrders: number;
+  topProducts: { name: string; sold: number; revenue: number }[];
+  categoryPerformance: { name: string; products: number; revenue: number }[];
+  lowStockProducts: { id: string; name: string; sku: string; stock: number; lowStockThreshold: number }[];
+}
+
 export interface DashboardAnalytics {
   totalRevenue: number;
   totalOrders: number;
@@ -345,7 +359,7 @@ export interface DashboardAnalytics {
   topProducts: { name: string; sold: number; revenue: number }[];
   categoryPerformance: { name: string; products: number; revenue: number }[];
   recentOrders: Order[];
-  lowStockProducts: Product[];
+  lowStockProducts: { id: string; name: string; sku: string; stock: number; lowStockThreshold: number }[];
 }
 
 export interface PaginatedResponse<T> {
@@ -368,10 +382,10 @@ export interface Permission {
 }
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  super_admin: [
+  SUPER_ADMIN: [
     { resource: "all", actions: ["create", "read", "update", "delete"] },
   ],
-  admin: [
+  ADMIN: [
     { resource: "products", actions: ["create", "read", "update", "delete"] },
     { resource: "categories", actions: ["create", "read", "update", "delete"] },
     { resource: "orders", actions: ["read", "update"] },
@@ -382,16 +396,19 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     { resource: "settings", actions: ["read", "update"] },
     { resource: "analytics", actions: ["read"] },
   ],
-  staff: [
+  STAFF: [
     { resource: "products", actions: ["read", "update"] },
     { resource: "orders", actions: ["read", "update"] },
     { resource: "customers", actions: ["read"] },
     { resource: "reviews", actions: ["read"] },
   ],
-  content_manager: [
-    { resource: "content", actions: ["create", "read", "update", "delete"] },
+  CONTENT_MANAGER: [
     { resource: "products", actions: ["read"] },
     { resource: "categories", actions: ["read", "update"] },
+    { resource: "content", actions: ["create", "read", "update", "delete"] },
     { resource: "reviews", actions: ["read", "update"] },
+  ],
+  CUSTOMER: [
+    { resource: "orders", actions: ["read", "create"] },
   ],
 };

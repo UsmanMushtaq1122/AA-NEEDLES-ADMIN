@@ -12,6 +12,7 @@ import {
   Download,
   Trash,
   Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -31,63 +32,26 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import { Product, Category } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "1", name: "Kurtis", slug: "kurtis", sortOrder: 0, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "2", name: "Suits", slug: "suits", sortOrder: 1, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "3", name: "Sarees", slug: "sarees", sortOrder: 2, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "4", name: "Dupattas", slug: "dupattas", sortOrder: 3, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "5", name: "Accessories", slug: "accessories", sortOrder: 4, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-];
-
-const MOCK_PRODUCTS: Product[] = Array.from({ length: 24 }, (_, i) => ({
-  id: `prod-${i + 1}`,
-  name: [
-    "Silk Embroidered Kurti",
-    "Chiffon Premium Suit",
-    "Banarasi Silk Saree",
-    "Organza Dupatta",
-    "Pearl Set",
-    "Velvet Jacket",
-    "Linen Kurta",
-    "Net Lehenga",
-  ][i % 8],
-  slug: `product-${i + 1}`,
-  description: "Premium quality luxury wear from AA Neddles.",
-  shortDescription: "Luxury wear",
-  price: [4500, 8900, 12500, 3200, 6700, 9500, 5800, 15000][i % 8],
-  compareAtPrice: [5000, 9900, 14000, 3800, 7500, 10000, 6500, 17000][i % 8],
-  costPrice: [2500, 5000, 7000, 1800, 3500, 5500, 3200, 8500][i % 8],
-  sku: `AA-${String(i + 1).padStart(4, "0")}`,
-  barcode: `629${String(i + 1).padStart(9, "0")}`,
-  stock: [45, 12, 0, 3, 28, 67, 8, 2][i % 8],
-  lowStockThreshold: 5,
-  weight: 0.5,
-  status: (["active", "active", "draft", "active", "archived", "active", "draft", "active"] as const)[i % 8],
-  isFeatured: i % 3 === 0,
-  isNewArrival: i % 5 === 0,
-  isBestSeller: i % 4 === 0,
-  images: [
-    { id: `img-${i}-1`, url: "/placeholder.jpg", alt: `Product ${i + 1}`, sortOrder: 0 },
-  ],
-  categories: [MOCK_CATEGORIES[i % 5]],
-  tags: ["new", "premium"],
-  createdAt: new Date(2026, 0, 15 + i).toISOString(),
-  updatedAt: new Date(2026, 6, 10 + i).toISOString(),
-}));
+import { api } from "@/lib/api";
 
 function fetchProducts(): Promise<{ data: Product[]; total: number }> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ data: MOCK_PRODUCTS, total: MOCK_PRODUCTS.length });
-    }, 800);
+  return api.get("/products?limit=50").then((res: any) => {
+    const products = (res.data?.products || []).map((p: any) => ({
+      ...p,
+      categories: p.category ? [p.category] : [],
+    }));
+    return { data: products, total: res.data?.total || products.length };
   });
 }
 
-function deleteProduct(_id: string): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 500);
+function fetchCategories(): Promise<Category[]> {
+  return api.get("/categories").then((res: any) => {
+    return res.data?.categories || res.data || [];
   });
+}
+
+function deleteProduct(id: string): Promise<void> {
+  return api.delete(`/products/${id}`).then(() => {});
 }
 
 export default function ProductsPage() {
@@ -103,6 +67,11 @@ export default function ProductsPage() {
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: fetchProducts,
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
   });
 
   const deleteMutation = useMutation({
@@ -288,10 +257,19 @@ export default function ProductsPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
           Products
         </h1>
-        <Button onClick={() => router.push("/admin/products/new")}>
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/products/bulk-upload")}
+          >
+            <Upload className="h-4 w-4" />
+            Bulk Upload
+          </Button>
+          <Button onClick={() => router.push("/admin/products/new")}>
+            <Plus className="h-4 w-4" />
+            Add Product
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div
@@ -327,7 +305,7 @@ export default function ProductsPage() {
                 className="flex h-10 appearance-none rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
               >
                 <option value="all">All Categories</option>
-                {MOCK_CATEGORIES.map((cat) => (
+                {(categoriesData || []).map((cat: any) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
@@ -440,7 +418,7 @@ export default function ProductsPage() {
                 }
               }}
             >
-              Delete
+              Delete Product
             </Button>
           </div>
         </DialogContent>

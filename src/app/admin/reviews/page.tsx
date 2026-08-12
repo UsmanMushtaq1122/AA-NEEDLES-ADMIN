@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   Star,
   CheckCircle2,
@@ -25,113 +27,6 @@ import { formatDate, cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Review } from "@/types";
 
-const mockReviews: Review[] = [
-  {
-    id: "1",
-    customerName: "Aisha Malik",
-    customerEmail: "aisha.malik@gmail.com",
-    productId: "p1",
-    product: { id: "p1", name: "Midnight Velvet Anarkali", slug: "midnight-velvet-anarkali", description: "", price: 18500, sku: "AA-VA-001", stock: 10, lowStockThreshold: 5, status: "active", isFeatured: false, isNewArrival: false, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 5,
-    title: "Absolutely Stunning!",
-    comment: "The craftsmanship on this Anarkali is breathtaking. The velvet fabric feels incredibly luxurious and the embroidery detail is even more beautiful in person. Received so many compliments at my cousin's wedding. Worth every rupee!",
-    isVerified: true,
-    isApproved: true,
-    createdAt: "2026-07-15T10:30:00Z",
-  },
-  {
-    id: "2",
-    customerName: "Fatima Qureshi",
-    customerEmail: "fatima.q@yahoo.com",
-    productId: "p2",
-    product: { id: "p2", name: "Pearl Embellished Clutch", slug: "pearl-embellished-clutch", description: "", price: 6500, sku: "AA-PC-002", stock: 25, lowStockThreshold: 5, status: "active", isFeatured: false, isNewArrival: true, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 4,
-    title: "Elegant but Small",
-    comment: "Beautiful clutch with delicate pearl work. It fits my phone, keys, and a small wallet perfectly. The only reason I'm giving 4 stars is that I wish it came with a chain strap option. Overall very happy with the purchase.",
-    isVerified: true,
-    isApproved: true,
-    createdAt: "2026-07-14T15:20:00Z",
-  },
-  {
-    id: "3",
-    customerName: "Sana Raza",
-    customerEmail: "sana.raza@hotmail.com",
-    productId: "p3",
-    product: { id: "p3", name: "Silk Formal Sharara Set", slug: "silk-formal-sharara", description: "", price: 24000, sku: "AA-SS-003", stock: 8, lowStockThreshold: 3, status: "active", isFeatured: true, isNewArrival: false, isBestSeller: true, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 5,
-    title: "Perfect for Eidi",
-    comment: "Ordered this for Eid and it exceeded all expectations. The silk is pure quality, the stitching is impeccable, and the color is exactly as shown. My whole family loved it. Will definitely order again!",
-    isVerified: true,
-    isApproved: true,
-    createdAt: "2026-07-12T09:45:00Z",
-  },
-  {
-    id: "4",
-    customerName: "Nadia Aslam",
-    customerEmail: "nadia.aslam@gmail.com",
-    productId: "p4",
-    product: { id: "p4", name: "Embroidered Organza Dupatta", slug: "embroidered-organza-dupatta", description: "", price: 4200, sku: "AA-OD-004", stock: 30, lowStockThreshold: 10, status: "active", isFeatured: false, isNewArrival: false, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 3,
-    title: "Nice but arrived wrinkled",
-    comment: "The dupatta design is gorgeous but it arrived quite wrinkled. I had to get it professionally steamed before wearing. The embroidery is lovely and the fabric quality is good. Packaging could be improved for such a premium brand.",
-    isVerified: false,
-    isApproved: false,
-    createdAt: "2026-07-11T12:00:00Z",
-  },
-  {
-    id: "5",
-    customerName: "Hina Javed",
-    customerEmail: "hina.javed@outlook.com",
-    productId: "p5",
-    product: { id: "p5", name: "Rose Gold Choker Set", slug: "rose-gold-choker-set", description: "", price: 12800, sku: "AA-RC-005", stock: 15, lowStockThreshold: 5, status: "active", isFeatured: true, isNewArrival: true, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 5,
-    title: "Jewelry that speaks elegance",
-    comment: "This choker set is a masterpiece. The rose gold tone is warm and flattering, and the stone work is delicate yet eye-catching. I wore it to a mehendi and everyone asked where I got it from. Highly recommend for special occasions!",
-    isVerified: true,
-    isApproved: false,
-    createdAt: "2026-07-10T14:30:00Z",
-  },
-  {
-    id: "6",
-    customerName: "Mehreen Tariq",
-    customerEmail: "mehreen.t@gmail.com",
-    productId: "p6",
-    product: { id: "p6", name: "Cashmere Pashmina Shawl", slug: "cashmere-pashmina-shawl", description: "", price: 9500, sku: "AA-PS-006", stock: 20, lowStockThreshold: 5, status: "active", isFeatured: false, isNewArrival: false, isBestSeller: true, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 2,
-    title: "Expected better quality",
-    comment: "For the price point, I expected heavier cashmere. The shawl is quite thin and the color is slightly different from the website photos. It's not bad, but doesn't match the luxury feel of other AA Neddles products I've purchased. Disappointed.",
-    isVerified: true,
-    isApproved: true,
-    createdAt: "2026-07-09T11:15:00Z",
-  },
-  {
-    id: "7",
-    customerName: "Zara Hussain",
-    customerEmail: "zara.hussain@gmail.com",
-    productId: "p1",
-    product: { id: "p1", name: "Midnight Velvet Anarkali", slug: "midnight-velvet-anarkali", description: "", price: 18500, sku: "AA-VA-001", stock: 10, lowStockThreshold: 5, status: "active", isFeatured: false, isNewArrival: false, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 5,
-    title: "My go-to formal wear",
-    comment: "This is my third purchase from AA Neddles and they never disappoint. The Anarkali fits like a dream and the color is perfect for evening events. The packaging was also very premium - felt like unwrapping a gift to myself.",
-    isVerified: true,
-    isApproved: true,
-    createdAt: "2026-07-08T16:00:00Z",
-  },
-  {
-    id: "8",
-    customerName: "Rabia Naveed",
-    customerEmail: "rabia.n@yahoo.com",
-    productId: "p7",
-    product: { id: "p7", name: "Jacquard Formal Suit", slug: "jacquard-formal-suit", description: "", price: 21000, sku: "AA-JS-007", stock: 12, lowStockThreshold: 4, status: "active", isFeatured: false, isNewArrival: true, isBestSeller: false, images: [], categories: [], tags: [], createdAt: "", updatedAt: "" },
-    rating: 4,
-    title: "Beautiful fabric, runs large",
-    comment: "The jacquard fabric is premium and the design is unique. However, the suit runs about half a size large. I'd recommend sizing down. The color palette is perfect for formal events. Customer service was helpful with my size exchange query.",
-    isVerified: false,
-    isApproved: false,
-    createdAt: "2026-07-07T13:45:00Z",
-  },
-];
-
 function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
   const sizeClass = size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5";
   return (
@@ -152,8 +47,31 @@ function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "md
 }
 
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<Review[]>(mockReviews);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+
+  const fetchReviews = useCallback(() => {
+    setLoading(true);
+    api.get<any>("/reviews")
+      .then((res) => {
+        const mapped = (res.data || []).map((r: any) => ({
+          ...r,
+          customerName: r.customerName || r.customer?.name || "Unknown",
+          customerEmail: r.customerEmail || r.customer?.email || "",
+        }));
+        setReviews(mapped);
+      })
+      .catch(() => setReviews([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -178,22 +96,49 @@ export default function ReviewsPage() {
     ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
     : "0.0";
 
-  const approveReview = (id: string) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isApproved: true } : r))
-    );
-    setSelectedIds((prev) => prev.filter((sid) => sid !== id));
+  const approveReview = async (id: string) => {
+    setActionLoading(id);
+    try {
+      await api.put(`/reviews/${id}`, { isApproved: true });
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isApproved: true } : r))
+      );
+      setSelectedIds((prev) => prev.filter((sid) => sid !== id));
+      toast("success", "Review approved successfully");
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to approve review");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const rejectReview = (id: string) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isApproved: false } : r))
-    );
+  const rejectReview = async (id: string) => {
+    setActionLoading(id);
+    try {
+      await api.put(`/reviews/${id}`, { isApproved: false });
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isApproved: false } : r))
+      );
+      toast("success", "Review rejected successfully");
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to reject review");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const deleteReview = (id: string) => {
-    setReviews((prev) => prev.filter((r) => r.id !== id));
-    setSelectedIds((prev) => prev.filter((sid) => sid !== id));
+  const deleteReview = async (id: string) => {
+    setActionLoading(id);
+    try {
+      await api.delete(`/reviews/${id}`);
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => prev.filter((sid) => sid !== id));
+      toast("success", "Review deleted successfully");
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to delete review");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -202,18 +147,42 @@ export default function ReviewsPage() {
     );
   };
 
-  const bulkApprove = () => {
-    setReviews((prev) =>
-      prev.map((r) =>
-        selectedIds.includes(r.id) ? { ...r, isApproved: true } : r
-      )
-    );
-    setSelectedIds([]);
+  const bulkApprove = async () => {
+    setActionLoading("bulk");
+    try {
+      await Promise.all(
+        selectedIds.map((id) => api.put(`/reviews/${id}`, { isApproved: true }))
+      );
+      setReviews((prev) =>
+        prev.map((r) =>
+          selectedIds.includes(r.id) ? { ...r, isApproved: true } : r
+        )
+      );
+      toast("success", `${selectedIds.length} review(s) approved successfully`);
+      setSelectedIds([]);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to approve some reviews");
+      fetchReviews();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const bulkDelete = () => {
-    setReviews((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
-    setSelectedIds([]);
+  const bulkDelete = async () => {
+    setActionLoading("bulk");
+    try {
+      await Promise.all(
+        selectedIds.map((id) => api.delete(`/reviews/${id}`))
+      );
+      setReviews((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      toast("success", `${selectedIds.length} review(s) deleted successfully`);
+      setSelectedIds([]);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to delete some reviews");
+      fetchReviews();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const pendingCount = reviews.filter((r) => !r.isApproved).length;
@@ -286,15 +255,16 @@ export default function ReviewsPage() {
             <span className="text-xs text-gray-500">
               {selectedIds.length} selected
             </span>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={bulkApprove}>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={bulkApprove} disabled={actionLoading === "bulk"}>
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Approve
+              {actionLoading === "bulk" ? "Processing..." : "Approve"}
             </Button>
             <Button
               size="sm"
               variant="destructive"
               className="gap-1.5"
               onClick={() => setBulkDeleteOpen(true)}
+              disabled={actionLoading === "bulk"}
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
@@ -334,7 +304,7 @@ export default function ReviewsPage() {
                     </div>
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild>
                       <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
                         <MoreHorizontal className="h-4 w-4" />
                       </button>

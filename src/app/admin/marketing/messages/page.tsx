@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
 import {
   Mail,
   MailOpen,
@@ -23,85 +25,6 @@ import { Separator } from "@/components/ui/separator";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import type { ContactMessage } from "@/types";
 
-const mockMessages: ContactMessage[] = [
-  {
-    id: "1",
-    name: "Ayesha Siddiqui",
-    email: "ayesha.siddiqui@gmail.com",
-    phone: "+92 321 4567890",
-    subject: "Custom Bridal Dress Inquiry",
-    message: "Assalam-o-Alaikum, I am looking for a custom bridal lehenga for my wedding in December. I would love to explore your bridal collection and discuss customization options. Could you please share your available designs and pricing? I am particularly interested in gold and maroon tones with heavy embroidery. JazakAllah.",
-    status: "unread",
-    createdAt: "2026-07-18T09:15:00Z",
-  },
-  {
-    id: "2",
-    name: "Maira Haq",
-    email: "maira.haq@yahoo.com",
-    phone: "+92 300 1234567",
-    subject: "Size Exchange Request",
-    message: "Hi, I recently ordered the Velvet Anarkali suit (Order #AA-4521) and it runs a size too small. I would like to exchange it for a larger size. The order was delivered 3 days ago. Please let me know the process. Thank you.",
-    status: "unread",
-    createdAt: "2026-07-17T16:30:00Z",
-  },
-  {
-    id: "3",
-    name: "Sobia Qadir",
-    email: "sobia.qadir@outlook.com",
-    subject: "Wholesale Partnership Inquiry",
-    message: "Dear AA Neddles Team, I own a boutique in Lahore and I am interested in stocking your ready-to-wear collection. Could you share details about your wholesale pricing, minimum order quantities, and partnership terms? Looking forward to hearing from you.",
-    status: "read",
-    createdAt: "2026-07-16T11:00:00Z",
-  },
-  {
-    id: "4",
-    name: "Nida Faisal",
-    email: "nida.faisal@hotmail.com",
-    phone: "+92 333 9876543",
-    subject: "Fabric Quality Concern",
-    message: "Hello, I purchased the Silk Formal Sharara set last week. While the design is beautiful, I noticed some loose stitching on the hem. I would like to know if this can be repaired or if I can get a replacement. I have attached photos of the issue. Kindly respond at your earliest convenience.",
-    status: "replied",
-    createdAt: "2026-07-15T14:45:00Z",
-  },
-  {
-    id: "5",
-    name: "Tania Raza",
-    email: "tania.raza@gmail.com",
-    subject: "Eid Collection Availability",
-    message: "Salam! When will the Eid ul-Adha collection be available for pre-orders? I absolutely loved the preview on your Instagram. Also, do you offer home delivery in Karachi? Please share the details. Shukriya!",
-    status: "read",
-    createdAt: "2026-07-14T10:20:00Z",
-  },
-  {
-    id: "6",
-    name: "Bushra Malik",
-    email: "bushra.malik@yahoo.com",
-    phone: "+92 312 5551234",
-    subject: "Corporate Order for Event",
-    message: "Dear Team, We are organizing a corporate gala and need 50 custom embroidered shawls as gifts for our guests. The event is on August 20th. Can you handle bulk orders with custom branding? Please share a quote and timeline. Thanks.",
-    status: "archived",
-    createdAt: "2026-07-12T08:30:00Z",
-  },
-  {
-    id: "7",
-    name: "Hafsa Noor",
-    email: "hafsa.noor@gmail.com",
-    phone: "+92 345 7890123",
-    subject: "International Shipping Inquiry",
-    message: "Hi! I am based in Dubai and absolutely adore your luxury lawn collection. Do you ship internationally? If yes, what are the shipping charges and estimated delivery time to UAE? I would like to place an order for multiple items. Please advise. Thank you!",
-    status: "unread",
-    createdAt: "2026-07-18T07:45:00Z",
-  },
-  {
-    id: "8",
-    name: "Rabia Shah",
-    email: "rabia.shah@outlook.com",
-    subject: "Gift Wrapping Service",
-    message: "Hello, I want to order a gift for my sister and would like premium gift wrapping. Do you offer this service? If so, please let me know the charges and available wrapping options. The item is the Pearl Embellished Clutch Bag. Thanks!",
-    status: "read",
-    createdAt: "2026-07-13T13:10:00Z",
-  },
-];
 
 const filterTabs = [
   { key: "all", label: "All", icon: Mail },
@@ -114,10 +37,83 @@ const filterTabs = [
 type FilterKey = (typeof filterTabs)[number]["key"];
 
 export default function MessagesPage() {
-  const [messages, setMessages] = useState<ContactMessage[]>(mockMessages);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get<any>("/contact");
+      setMessages(res.data || []);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const markAsRead = async (id: string) => {
+    try {
+      await api.put(`/contact/${id}`, { status: "read" });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: "read" as const } : m))
+      );
+    } catch (err: any) {
+      toast("error", err.message || "Failed to mark message as read");
+    }
+  };
+
+  const markAsReplied = async (id: string) => {
+    try {
+      await api.put(`/contact/${id}`, { status: "replied" });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: "replied" as const } : m))
+      );
+      toast("success", "Status updated: Replied");
+    } catch (err: any) {
+      toast("error", err.message || "Failed to update status");
+    }
+  };
+
+  const archiveMessage = async (id: string) => {
+    try {
+      await api.put(`/contact/${id}`, { status: "archived" });
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id ? { ...m, status: "archived" as const } : m
+        )
+      );
+      toast("success", "Message archived successfully");
+      if (selectedId === id) setSelectedId(null);
+    } catch (err: any) {
+      toast("error", err.message || "Failed to archive message");
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    try {
+      await api.delete(`/contact/${id}`);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      toast("success", "Message deleted successfully");
+      if (selectedId === id) setSelectedId(null);
+    } catch (err: any) {
+      toast("error", err.message || "Failed to delete message");
+    }
+  };
+
+  const selectMessage = (id: string) => {
+    setSelectedId(id);
+    const msg = messages.find((m) => m.id === id);
+    if (msg && msg.status === "unread") markAsRead(id);
+  };
 
   const filtered = useMemo(() => {
     return messages.filter((m) => {
@@ -133,38 +129,6 @@ export default function MessagesPage() {
 
   const selected = messages.find((m) => m.id === selectedId) || null;
   const unreadCount = messages.filter((m) => m.status === "unread").length;
-
-  const markAsRead = (id: string) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: "read" as const } : m))
-    );
-  };
-
-  const markAsReplied = (id: string) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: "replied" as const } : m))
-    );
-  };
-
-  const archiveMessage = (id: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === id ? { ...m, status: "archived" as const } : m
-      )
-    );
-    if (selectedId === id) setSelectedId(null);
-  };
-
-  const deleteMessage = (id: string) => {
-    setMessages((prev) => prev.filter((m) => m.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  };
-
-  const selectMessage = (id: string) => {
-    setSelectedId(id);
-    const msg = messages.find((m) => m.id === id);
-    if (msg && msg.status === "unread") markAsRead(id);
-  };
 
   return (
     <div className="space-y-6 p-8">
@@ -232,7 +196,11 @@ export default function MessagesPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                {filtered.length === 0 ? (
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <p className="text-sm font-medium text-gray-400">Loading messages...</p>
+                  </div>
+                ) : filtered.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <Mail className="mb-3 h-10 w-10 text-gray-300" />
                     <p className="text-sm font-medium text-gray-500">No messages found</p>

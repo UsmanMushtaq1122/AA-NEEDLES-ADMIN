@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   Plus,
   Pencil,
@@ -40,71 +42,10 @@ interface EditorialItem {
   date: string;
 }
 
-const mockEditorials: EditorialItem[] = [
-  {
-    id: "e1",
-    title: "The Heritage of Khaddar",
-    subtitle: "Exploring Pakistan's handwoven textile legacy",
-    description: "From the looms of Punjab to the runways of Paris, khaddar has evolved while maintaining its soul. This editorial explores the journey of this timeless fabric through generations of Pakistani artisans.",
-    imageUrl: "/editorial/khaddar.jpg",
-    link: "/editorial/khaddar-heritage",
-    category: "Culture",
-    active: true,
-    order: 0,
-    date: "2026-07-10",
-  },
-  {
-    id: "e2",
-    title: "Summer Styling Guide 2026",
-    subtitle: "How to wear luxury linen this season",
-    description: "Our creative director shares five essential looks for the modern Pakistani woman. From boardroom to brunch, discover how to layer, accessorize, and own the summer with effortless elegance.",
-    imageUrl: "/editorial/summer-guide.jpg",
-    link: "/editorial/summer-styling",
-    category: "Styling",
-    active: true,
-    order: 1,
-    date: "2026-07-05",
-  },
-  {
-    id: "e3",
-    title: "Behind the Atelier",
-    subtitle: "A day in our Lahore design studio",
-    description: "Step inside the creative heart of AA Neddles. From initial sketches to the final stitch, follow our design team through a day of inspiration, experimentation, and exquisite craftsmanship.",
-    imageUrl: "/editorial/atelier.jpg",
-    link: "/editorial/atelier-day",
-    category: "Behind the Scenes",
-    active: true,
-    order: 2,
-    date: "2026-06-28",
-  },
-  {
-    id: "e4",
-    title: "The Art of Mukaish",
-    subtitle: "Reviving Lucknow's metallic embroidery for modern silhouettes",
-    description: "Our collaboration with traditional mukaish artisans has resulted in a collection that bridges centuries of craft with contemporary design sensibilities.",
-    imageUrl: "/editorial/mukaish.jpg",
-    link: "/editorial/mukaish-art",
-    category: "Craft",
-    active: false,
-    order: 3,
-    date: "2026-06-15",
-  },
-  {
-    id: "e5",
-    title: "Sustainable Luxury",
-    subtitle: "Our commitment to ethical fashion",
-    description: "Luxury and sustainability are not mutually exclusive. Learn about our initiatives — from organic dyes to fair wages — that define our approach to responsible fashion.",
-    imageUrl: "/editorial/sustainable.jpg",
-    link: "/editorial/sustainability",
-    category: "Sustainability",
-    active: true,
-    order: 4,
-    date: "2026-06-01",
-  },
-];
-
 export default function EditorialPage() {
-  const [editorials, setEditorials] = useState(mockEditorials);
+  const [editorials, setEditorials] = useState<EditorialItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EditorialItem | null>(null);
   const [form, setForm] = useState({
@@ -116,10 +57,22 @@ export default function EditorialPage() {
     category: "",
     active: true,
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const { toast } = useToast();
+
+  useEffect(() => {
+    api.get<any>("/editorial")
+      .then((res) => setEditorials(res.data || []))
+      .catch(() => setEditorials([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const openAdd = () => {
     setEditingItem(null);
     setForm({ title: "", subtitle: "", description: "", imageUrl: "", link: "", category: "", active: true });
+    setSelectedFile(null);
+    setImagePreview("");
     setDialogOpen(true);
   };
 
@@ -134,45 +87,83 @@ export default function EditorialPage() {
       category: item.category,
       active: item.active,
     });
+    setSelectedFile(null);
+    setImagePreview(item.imageUrl || "");
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setEditorials((prev) =>
-        prev.map((e) => (e.id === editingItem.id ? { ...e, ...form } : e))
-      );
-    } else {
-      setEditorials((prev) => [
-        ...prev,
-        {
-          id: `e${Date.now()}`,
-          ...form,
-          order: prev.length,
-          date: new Date().toISOString().split("T")[0],
-        },
-      ]);
+  const handleSave = async () => {
+    setActionLoading("save");
+    try {
+      const payload = {
+        title: form.title,
+        subtitle: form.subtitle,
+        description: form.description,
+        imageUrl: form.imageUrl,
+        link: form.link,
+        category: form.category,
+        isActive: form.active,
+        sortOrder: editingItem ? editingItem.order : editorials.length,
+      };
+      if (editingItem) {
+        await api.put(`/editorial/${editingItem.id}`, payload);
+        toast("success", "Editorial updated successfully");
+      } else {
+        await api.post("/editorial", payload);
+        toast("success", "Editorial added successfully");
+      }
+      const res = await api.get<any>("/editorial");
+      setEditorials(res.data || []);
+      setDialogOpen(false);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to save editorial");
+    } finally {
+      setActionLoading(null);
     }
-    setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setEditorials((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, active: !e.active } : e))
-    );
+  const toggleActive = async (id: string) => {
+    const item = editorials.find((e) => e.id === id);
+    if (!item) return;
+    try {
+      await api.put(`/editorial/${id}`, { isActive: !item.active });
+      toast("success", "Status updated successfully");
+      const res = await api.get<any>("/editorial");
+      setEditorials(res.data || []);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to toggle status");
+    }
   };
 
-  const moveItem = (id: string, direction: "up" | "down") => {
+  const moveItem = async (id: string, direction: "up" | "down") => {
     const idx = editorials.findIndex((e) => e.id === id);
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= editorials.length) return;
-    const newList = [...editorials];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    setEditorials(newList);
+
+    const currentItem = editorials[idx];
+    const swapItem = editorials[newIdx];
+
+    try {
+      await Promise.all([
+        api.put(`/editorial/${currentItem.id}`, { sortOrder: swapItem.order }),
+        api.put(`/editorial/${swapItem.id}`, { sortOrder: currentItem.order }),
+      ]);
+      toast("success", "Order updated successfully");
+      const res = await api.get<any>("/editorial");
+      setEditorials(res.data || []);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to update order");
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setEditorials((prev) => prev.filter((e) => e.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      await api.delete(`/editorial/${id}`);
+      toast("success", "Editorial deleted successfully");
+      setEditorials((prev) => prev.filter((e) => e.id !== id));
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to delete editorial");
+    }
   };
 
   const categoryColors: Record<string, string> = {
@@ -203,6 +194,13 @@ export default function EditorialPage() {
             </Button>
           </div>
 
+          {editorials.length === 0 ? (
+            <div className="text-center py-16 col-span-full">
+              <Image className="w-14 h-14 mx-auto text-[#1A1A1A]/10 mb-4" />
+              <h3 className="text-lg font-light text-[#1A1A1A]/40 mb-1">No editorial articles yet</h3>
+              <p className="text-sm text-[#1A1A1A]/25 font-light">Create your first editorial article to showcase your brand story.</p>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <AnimatePresence mode="popLayout">
               {editorials.map((item, index) => (
@@ -292,17 +290,18 @@ export default function EditorialPage() {
               ))}
             </AnimatePresence>
           </div>
+          )}
         </motion.div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-white border-0 max-w-lg">
+        <DialogContent className="bg-white border-0 max-w-lg md:max-w-3xl w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-light tracking-wide text-[#1A1A1A]">
               {editingItem ? "Edit" : "Add"} Editorial
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 mt-2">
+          <div className="space-y-5 mt-2 max-h-[72vh] overflow-y-auto pr-3">
             <div>
               <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Title</label>
               <Input
@@ -331,13 +330,33 @@ export default function EditorialPage() {
               />
             </div>
             <div>
-              <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Image URL</label>
-              <Input
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="/editorial/image.jpg"
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
-              />
+              <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Image</label>
+              <label className="w-full bg-[#F5F0EB] rounded-lg border border-stone-200 flex items-center justify-center overflow-hidden cursor-pointer p-0">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setSelectedFile(file);
+                    if (file) {
+                      const url = URL.createObjectURL(file);
+                      setImagePreview(url);
+                      setForm({ ...form, imageUrl: url });
+                    } else {
+                      setImagePreview("");
+                      setForm({ ...form, imageUrl: "" });
+                    }
+                  }}
+                />
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Editorial" className="w-full h-48 object-cover" />
+                ) : form.imageUrl ? (
+                  <img src={form.imageUrl} alt="Editorial" className="w-full h-48 object-cover" />
+                ) : (
+                  <div className="w-full h-48 flex items-center justify-center text-[#1A1A1A]/40">Click to upload image</div>
+                )}
+              </label>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -367,8 +386,8 @@ export default function EditorialPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
-                {editingItem ? "Save Changes" : "Add Editorial"}
+              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide" disabled={actionLoading === "save"}>
+                {actionLoading === "save" ? "Saving..." : editingItem ? "Save Changes" : "Add Editorial"}
               </Button>
             </div>
           </div>

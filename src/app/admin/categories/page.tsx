@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -23,10 +23,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { categorySchema } from "@/lib/validations"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -44,7 +44,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { EmptyState } from "@/components/ui/empty-state"
-import { StatusBadge } from "@/components/ui/status-badge"
+import { useToast } from "@/components/ui/toast"
 
 interface CategoryItem extends Category {
   productCount: number
@@ -54,343 +54,6 @@ interface CategoryItem extends Category {
   children?: CategoryItem[]
   subcategories?: CategoryItem[]
 }
-
-const mockCategories: CategoryItem[] = [
-  {
-    id: "1",
-    name: "Unstitched",
-    slug: "unstitched",
-    description: "Premium unstitched fabric collections for custom tailoring",
-    productCount: 145,
-    subcategoryCount: 6,
-    isActive: true,
-    sortOrder: 0,
-    createdAt: "2024-01-15",
-    image: "/categories/unstitched.jpg",
-    children: [
-      {
-        id: "1-1",
-        name: "Lawn",
-        slug: "lawn",
-        description: "Premium lawn fabric",
-        productCount: 42,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-2",
-        name: "Silk",
-        slug: "silk",
-        description: "Luxurious silk collections",
-        productCount: 28,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-3",
-        name: "Chiffon",
-        slug: "chiffon",
-        description: "Elegant chiffon fabrics",
-        productCount: 35,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-4",
-        name: "Cotton",
-        slug: "cotton",
-        description: "Premium cotton fabrics",
-        productCount: 22,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-5",
-        name: "Organza",
-        slug: "organza",
-        description: "Delicate organza collection",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-6",
-        name: "Karandi",
-        slug: "karandi",
-        description: "Winter karandi collection",
-        productCount: 6,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 5,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Stitched",
-    slug: "stitched",
-    description: "Ready to wear stitched luxury outfits",
-    productCount: 89,
-    subcategoryCount: 5,
-    isActive: true,
-    sortOrder: 1,
-    createdAt: "2024-01-15",
-    image: "/categories/stitched.jpg",
-    children: [
-      {
-        id: "2-1",
-        name: "Kurtis",
-        slug: "kurtis",
-        description: "Designer kurtis",
-        productCount: 30,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-2",
-        name: "Suits",
-        slug: "suits",
-        description: "Formal suits",
-        productCount: 24,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-3",
-        name: "Lehengas",
-        slug: "lehengas",
-        description: "Bridal and party lehengas",
-        productCount: 15,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-4",
-        name: "Shalwar Kameez",
-        slug: "shalwar-kameez",
-        description: "Traditional shalwar kameez",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-5",
-        name: "Maxi Dresses",
-        slug: "maxi-dresses",
-        description: "Flowing maxi dresses",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Pret",
-    slug: "pret",
-    description: "Contemporary ready-to-wear pret collections",
-    productCount: 67,
-    subcategoryCount: 4,
-    isActive: true,
-    sortOrder: 2,
-    createdAt: "2024-01-15",
-    image: "/categories/pret.jpg",
-    children: [
-      {
-        id: "3-1",
-        name: "Casual Pret",
-        slug: "casual-pret",
-        description: "Everyday casual wear",
-        productCount: 25,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-2",
-        name: "Formal Pret",
-        slug: "formal-pret",
-        description: "Elegant formal wear",
-        productCount: 18,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-3",
-        name: "Fusion Wear",
-        slug: "fusion-wear",
-        description: "East meets west",
-        productCount: 14,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-4",
-        name: "Workwear",
-        slug: "workwear",
-        description: "Professional attire",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Accessories",
-    slug: "accessories",
-    description: "Luxury accessories and embellishments",
-    productCount: 52,
-    subcategoryCount: 5,
-    isActive: true,
-    sortOrder: 3,
-    createdAt: "2024-01-15",
-    image: "/categories/accessories.jpg",
-    children: [
-      {
-        id: "4-1",
-        name: "Dupattas",
-        slug: "dupattas",
-        description: "Embroidered dupattas",
-        productCount: 18,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-2",
-        name: "Clutches",
-        slug: "clutches",
-        description: "Designer clutches",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-3",
-        name: "Shawls",
-        slug: "shawls",
-        description: "Luxury shawls",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-4",
-        name: "Jewelry",
-        slug: "jewelry",
-        description: "Statement jewelry pieces",
-        productCount: 7,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-5",
-        name: "Scarves",
-        slug: "scarves",
-        description: "Premium scarves",
-        productCount: 5,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Fabrics",
-    slug: "fabrics",
-    description: "Raw fabrics by the yard for custom creations",
-    productCount: 38,
-    subcategoryCount: 4,
-    isActive: true,
-    sortOrder: 4,
-    createdAt: "2024-01-15",
-    image: "/categories/fabrics.jpg",
-    children: [
-      {
-        id: "5-1",
-        name: "Raw Silk",
-        slug: "raw-silk",
-        description: "Premium raw silk fabric",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-2",
-        name: "Velvet",
-        slug: "velvet",
-        description: "Luxurious velvet fabric",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-3",
-        name: "Net",
-        slug: "net",
-        description: "Decorative net fabric",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-4",
-        name: "Georgette",
-        slug: "georgette",
-        description: "Flowing georgette",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-]
 
 interface CategoryFormData {
   name: string
@@ -402,15 +65,27 @@ interface CategoryFormData {
   isActive: boolean
 }
 
+interface DeleteCategoryResult {
+  movedProducts: number
+  reparentedSubcategories: number
+}
+
 export default function CategoriesPage() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [expandedIds, setExpandedIds] = useState<string[]>(["1", "2", "3", "4", "5"])
+  const [expandedIds, setExpandedIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
   const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null)
+
+  // Image Upload State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   const {
     register,
@@ -432,55 +107,112 @@ export default function CategoriesPage() {
     },
   })
 
-  const { data: categories = mockCategories, isLoading } = useQuery({
+  const { data: categories = [], isLoading } = useQuery<CategoryItem[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      return mockCategories
+      const res = await api.get<any>("/categories?limit=100")
+      const cats = res.data?.categories || (Array.isArray(res.data) ? res.data : [])
+      return cats.map((c: any) => ({
+        ...c,
+        productCount: c._count?.products || 0,
+        subcategoryCount: c.children?.length || 0,
+        children: c.children || [],
+        subcategories: c.children || [],
+      }))
     },
   })
 
-  const createMutation = useMutation({
-    mutationFn: async (data: CategoryFormData) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return { id: Date.now().toString(), ...data }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
-      setIsDialogOpen(false)
-      reset()
-    },
-  })
+  const saveMutation = useMutation({
+    mutationFn: async ({ id, data, file }: { id?: string; data: CategoryFormData; file: File | null }) => {
+      // Always use FormData/multipart so backend multer path is always used
+      const formData = new FormData()
+      formData.append("name", data.name)
+      if (data.description) formData.append("description", data.description)
+      if (data.parentId) formData.append("parentId", data.parentId)
+      if (data.seoTitle) formData.append("seoTitle", data.seoTitle)
+      if (data.seoDescription) formData.append("seoDescription", data.seoDescription)
+      formData.append("isActive", String(data.isActive))
+      if (file) {
+        formData.append("image", file)
+      }
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CategoryFormData }) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return { id, ...data }
+      if (id) {
+        const res = await api.upload<any>(`/categories/${id}`, formData, "PUT")
+        return res.data
+      } else {
+        const res = await api.upload<any>("/categories", formData, "POST")
+        return res.data
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setIsDialogOpen(false)
       setEditingCategory(null)
+      setSelectedFile(null)
+      setImagePreview(null)
       reset()
+      toast("success", variables.id ? "Category updated successfully" : "Category created successfully")
+    },
+    onError: (error: Error) => {
+      console.error("[saveMutation] error:", error)
+      toast("error", error.message || "Failed to save category")
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return id
+      const res = await api.delete<{ data: DeleteCategoryResult }>(`/categories/${id}`)
+      return res.data
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setIsDeleteDialogOpen(false)
       setDeletingCategory(null)
+      const movedProducts = result?.movedProducts || 0
+      const reparentedSubcategories = result?.reparentedSubcategories || 0
+      const details = [
+        movedProducts > 0 && `${movedProducts} product${movedProducts === 1 ? "" : "s"} moved to Uncategorized`,
+        reparentedSubcategories > 0 && `${reparentedSubcategories} subcategor${reparentedSubcategories === 1 ? "y" : "ies"} retained`,
+      ].filter(Boolean)
+      toast("success", details.length ? `Category deleted. ${details.join("; ")}.` : "Category deleted successfully")
+    },
+    onError: (error: Error) => {
+      toast("error", error.message || "Failed to delete category")
     },
   })
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await api.put(`/categories/${id}`, { isActive })
       return { id, isActive }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      toast("success", "Category status updated")
+    },
+    onError: (error: Error) => {
+      toast("error", error.message || "Failed to update status")
+    },
+  })
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ id, direction }: { id: string; direction: "up" | "down" }) => {
+      const idx = categories.findIndex((c) => c.id === id)
+      if (direction === "up" && idx > 0) {
+        const current = categories[idx]
+        const swap = categories[idx - 1]
+        await Promise.all([
+          api.put(`/categories/${current.id}`, { sortOrder: swap.sortOrder }),
+          api.put(`/categories/${swap.id}`, { sortOrder: current.sortOrder }),
+        ])
+      } else if (direction === "down" && idx < categories.length - 1) {
+        const current = categories[idx]
+        const swap = categories[idx + 1]
+        await Promise.all([
+          api.put(`/categories/${current.id}`, { sortOrder: swap.sortOrder }),
+          api.put(`/categories/${swap.id}`, { sortOrder: current.sortOrder }),
+        ])
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
@@ -493,20 +225,36 @@ export default function CategoriesPage() {
     )
   }
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast("error", "Image file size should be less than 10MB")
+        return
+      }
+      setSelectedFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
   const handleEdit = (category: CategoryItem) => {
     setEditingCategory(category)
+    setSelectedFile(null)
+    setImagePreview(category.image || null)
     setValue("name", category.name)
     setValue("description", category.description || "")
-    setValue("parentId", "")
+    setValue("parentId", category.parentId || "")
     setValue("image", category.image || "")
-    setValue("seoTitle", category.name)
-    setValue("seoDescription", category.description || "")
+    setValue("seoTitle", category.seoTitle || category.name)
+    setValue("seoDescription", category.seoDescription || category.description || "")
     setValue("isActive", category.isActive)
     setIsDialogOpen(true)
   }
 
   const handleCreate = () => {
     setEditingCategory(null)
+    setSelectedFile(null)
+    setImagePreview(null)
     reset({
       name: "",
       description: "",
@@ -519,19 +267,19 @@ export default function CategoriesPage() {
     setIsDialogOpen(true)
   }
 
-  const onSubmit = (data: any) => {
-    if (editingCategory) {
-      updateMutation.mutate({ id: editingCategory.id, data })
-    } else {
-      createMutation.mutate(data)
-    }
+  const onSubmit = (data: CategoryFormData) => {
+    saveMutation.mutate({
+      id: editingCategory?.id,
+      data,
+      file: selectedFile,
+    })
   }
 
   const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const parentCategories = categories.filter((cat) => !cat.parentId)
+  const parentCategories = categories.filter((cat) => !cat.parentId && cat.id !== editingCategory?.id)
 
   const getDisplayCategories = (cats: CategoryItem[]): CategoryItem[] => {
     return cats.map((cat) => ({
@@ -541,15 +289,12 @@ export default function CategoriesPage() {
   }
 
   const moveCategory = (categoryId: string, direction: "up" | "down") => {
-    const idx = categories.findIndex((c) => c.id === categoryId)
-    if (direction === "up" && idx > 0) {
-      const newCats = [...categories]
-      ;[newCats[idx - 1], newCats[idx]] = [newCats[idx], newCats[idx - 1]]
-    } else if (direction === "down" && idx < categories.length - 1) {
-      const newCats = [...categories]
-      ;[newCats[idx], newCats[idx + 1]] = [newCats[idx + 1], newCats[idx]]
-    }
+    moveMutation.mutate({ id: categoryId, direction })
   }
+
+  const isDeletingUncategorized = deletingCategory?.slug === "uncategorized"
+  const isDeleteBlocked = Boolean(isDeletingUncategorized && deletingCategory?.productCount)
+  const deletingCategoryLabel = isDeletingUncategorized ? "Uncategorized" : deletingCategory?.name
 
   const renderCategoryCard = (category: CategoryItem, isChild = false) => {
     const isExpanded = expandedIds.includes(category.id)
@@ -563,8 +308,8 @@ export default function CategoriesPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           className={cn(
-            "group border border-[#F5F0EB]/10 bg-[#1A1A1A] hover:border-[#C9A96E]/30 transition-all duration-300",
-            isChild ? "ml-8 border-l-2 border-l-[#C9A96E]/30" : "rounded-lg"
+            "group border border-[#E5DDCF] bg-white hover:border-[#7A6543]/40 transition-all duration-300 shadow-sm",
+            isChild ? "ml-8 border-l-4 border-l-[#7A6543]" : "rounded-xl"
           )}
         >
           {viewMode === "grid" ? (
@@ -574,7 +319,7 @@ export default function CategoriesPage() {
                   {hasChildren && !isChild && (
                     <button
                       onClick={() => toggleExpand(category.id)}
-                      className="text-[#F5F0EB]/50 hover:text-[#C9A96E] transition-colors"
+                      className="text-gray-500 hover:text-[#7A6543] transition-colors"
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4" />
@@ -583,19 +328,21 @@ export default function CategoriesPage() {
                       )}
                     </button>
                   )}
-                  <div className="w-12 h-12 rounded-lg bg-[#F5F0EB]/5 flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-lg bg-[#F5F0EB] flex items-center justify-center overflow-hidden border border-[#E5DDCF]">
                     {category.image ? (
-                      <div className="w-full h-full bg-gradient-to-br from-[#C9A96E]/20 to-[#8B1A1A]/20 flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-[#C9A96E]/60" />
-                      </div>
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <ImageIcon className="w-5 h-5 text-[#F5F0EB]/30" />
+                      <ImageIcon className="w-5 h-5 text-gray-400" />
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium text-[#F5F0EB] text-sm">{category.name}</h3>
-                    <p className="text-xs text-[#F5F0EB]/40 mt-0.5">
-                      {category.productCount} products
+                    <h3 className="font-semibold text-[#1A1A1A] text-sm">{category.name}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {category.productCount} product{category.productCount === 1 ? "" : "s"}
                     </p>
                   </div>
                 </div>
@@ -605,25 +352,25 @@ export default function CategoriesPage() {
                     onCheckedChange={(checked) =>
                       toggleMutation.mutate({ id: category.id, isActive: checked })
                     }
-                    className="data-[state=checked]:bg-[#C9A96E]"
+                    className="data-[state=checked]:bg-[#7A6543]"
                   />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-8 h-8 text-[#F5F0EB]/50 hover:text-[#C9A96E]"
+                        className="w-8 h-8 text-gray-500 hover:text-[#7A6543] hover:bg-gray-100"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="bg-[#2A2A2A] border-[#F5F0EB]/10"
+                      className="bg-white border-[#E5DDCF] shadow-lg text-[#1A1A1A]"
                     >
                       <DropdownMenuItem
                         onClick={() => handleEdit(category)}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="cursor-pointer hover:bg-[#F5F0EB]"
                       >
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit
@@ -632,14 +379,14 @@ export default function CategoriesPage() {
                         <>
                           <DropdownMenuItem
                             onClick={() => moveCategory(category.id, "up")}
-                            className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                            className="cursor-pointer hover:bg-[#F5F0EB]"
                           >
                             <ArrowUp className="w-4 h-4 mr-2" />
                             Move Up
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => moveCategory(category.id, "down")}
-                            className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                            className="cursor-pointer hover:bg-[#F5F0EB]"
                           >
                             <ArrowDown className="w-4 h-4 mr-2" />
                             Move Down
@@ -651,7 +398,7 @@ export default function CategoriesPage() {
                           setDeletingCategory(category)
                           setIsDeleteDialogOpen(true)
                         }}
-                        className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10"
+                        className="cursor-pointer text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
@@ -661,7 +408,7 @@ export default function CategoriesPage() {
                 </div>
               </div>
               {!isChild && category.children && (
-                <div className="flex items-center gap-4 text-xs text-[#F5F0EB]/40 mt-2 pt-2 border-t border-[#F5F0EB]/5">
+                <div className="flex items-center gap-4 text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100">
                   <span>{category.subcategoryCount} subcategories</span>
                   <span>{category.productCount} products</span>
                 </div>
@@ -672,7 +419,7 @@ export default function CategoriesPage() {
               {hasChildren && !isChild && (
                 <button
                   onClick={() => toggleExpand(category.id)}
-                  className="text-[#F5F0EB]/50 hover:text-[#C9A96E] transition-colors"
+                  className="text-gray-500 hover:text-[#7A6543] transition-colors"
                 >
                   {isExpanded ? (
                     <ChevronDown className="w-4 h-4" />
@@ -681,27 +428,29 @@ export default function CategoriesPage() {
                   )}
                 </button>
               )}
-              <div className="w-10 h-10 rounded-lg bg-[#F5F0EB]/5 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[#F5F0EB] flex items-center justify-center overflow-hidden flex-shrink-0 border border-[#E5DDCF]">
                 {category.image ? (
-                  <div className="w-full h-full bg-gradient-to-br from-[#C9A96E]/20 to-[#8B1A1A]/20 flex items-center justify-center">
-                    <ImageIcon className="w-4 h-4 text-[#C9A96E]/60" />
-                  </div>
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <ImageIcon className="w-4 h-4 text-[#F5F0EB]/30" />
+                  <ImageIcon className="w-4 h-4 text-gray-400" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-[#F5F0EB] text-sm truncate">
+                <h3 className="font-semibold text-[#1A1A1A] text-sm truncate">
                   {category.name}
                 </h3>
-                <p className="text-xs text-[#F5F0EB]/40 truncate">
+                <p className="text-xs text-gray-500 truncate">
                   {category.description || "No description"}
                 </p>
               </div>
-              <div className="text-xs text-[#F5F0EB]/50 w-24 text-right">
+              <div className="text-xs text-gray-500 w-24 text-right">
                 {category.productCount} products
               </div>
-              <div className="text-xs text-[#F5F0EB]/50 w-28 text-right">
+              <div className="text-xs text-gray-500 w-28 text-right">
                 {category.subcategoryCount} subcategories
               </div>
               <Switch
@@ -709,25 +458,25 @@ export default function CategoriesPage() {
                 onCheckedChange={(checked) =>
                   toggleMutation.mutate({ id: category.id, isActive: checked })
                 }
-                className="data-[state=checked]:bg-[#C9A96E]"
+                className="data-[state=checked]:bg-[#7A6543]"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-8 h-8 text-[#F5F0EB]/50 hover:text-[#C9A96E]"
+                    className="w-8 h-8 text-gray-500 hover:text-[#7A6543] hover:bg-gray-100"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="bg-[#2A2A2A] border-[#F5F0EB]/10"
+                  className="bg-white border-[#E5DDCF] shadow-lg text-[#1A1A1A]"
                 >
                   <DropdownMenuItem
                     onClick={() => handleEdit(category)}
-                    className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                    className="cursor-pointer hover:bg-[#F5F0EB]"
                   >
                     <Pencil className="w-4 h-4 mr-2" />
                     Edit
@@ -736,14 +485,14 @@ export default function CategoriesPage() {
                     <>
                       <DropdownMenuItem
                         onClick={() => moveCategory(category.id, "up")}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="cursor-pointer hover:bg-[#F5F0EB]"
                       >
                         <ArrowUp className="w-4 h-4 mr-2" />
                         Move Up
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => moveCategory(category.id, "down")}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="cursor-pointer hover:bg-[#F5F0EB]"
                       >
                         <ArrowDown className="w-4 h-4 mr-2" />
                         Move Down
@@ -755,7 +504,7 @@ export default function CategoriesPage() {
                       setDeletingCategory(category)
                       setIsDeleteDialogOpen(true)
                     }}
-                    className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10"
+                    className="cursor-pointer text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
@@ -789,54 +538,53 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1A1A1A] p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen p-2 md:p-6 bg-[#F5F0EB]">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-light text-[#F5F0EB] tracking-wide">
+            <h1 className="text-2xl font-semibold text-[#1A1A1A] tracking-tight">
               Categories
             </h1>
-            <p className="text-sm text-[#F5F0EB]/40 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               Manage your product categories and subcategories
             </p>
           </div>
           <Button
             onClick={handleCreate}
-            className="bg-[#C9A96E] hover:bg-[#C9A96E]/90 text-[#1A1A1A] font-medium px-5 py-2.5 rounded-lg transition-all duration-300"
+            className="bg-[#7A6543] hover:bg-[#7A6543]/90 text-white font-medium px-5 py-2.5 rounded-lg shadow-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Category
           </Button>
         </div>
 
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F0EB]/30" />
-              <Input
-                placeholder="Search categories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64 bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:border-[#C9A96E]/50"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F5F0EB]/30 hover:text-[#F5F0EB]/60"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-white border-[#E5DDCF] text-[#1A1A1A] placeholder:text-gray-400 focus:border-[#7A6543] rounded-lg shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2 bg-[#F5F0EB]/5 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-white border border-[#E5DDCF] rounded-lg p-1 shadow-sm">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
-                "p-2 rounded-md transition-all duration-200",
+                "p-1.5 rounded-md transition-all duration-200",
                 viewMode === "grid"
-                  ? "bg-[#C9A96E]/20 text-[#C9A96E]"
-                  : "text-[#F5F0EB]/40 hover:text-[#F5F0EB]/60"
+                  ? "bg-[#7A6543]/15 text-[#7A6543]"
+                  : "text-gray-500 hover:text-gray-800"
               )}
             >
               <Grid3X3 className="w-4 h-4" />
@@ -844,10 +592,10 @@ export default function CategoriesPage() {
             <button
               onClick={() => setViewMode("list")}
               className={cn(
-                "p-2 rounded-md transition-all duration-200",
+                "p-1.5 rounded-md transition-all duration-200",
                 viewMode === "list"
-                  ? "bg-[#C9A96E]/20 text-[#C9A96E]"
-                  : "text-[#F5F0EB]/40 hover:text-[#F5F0EB]/60"
+                  ? "bg-[#7A6543]/15 text-[#7A6543]"
+                  : "text-gray-500 hover:text-gray-800"
               )}
             >
               <List className="w-4 h-4" />
@@ -860,7 +608,7 @@ export default function CategoriesPage() {
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="h-20 rounded-lg bg-[#F5F0EB]/5 animate-pulse"
+                className="h-20 rounded-xl bg-gray-200/60 animate-pulse border border-[#E5DDCF]"
               />
             ))}
           </div>
@@ -870,10 +618,10 @@ export default function CategoriesPage() {
             description="Create your first category to get started."
           />
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             <AnimatePresence mode="popLayout">
               {viewMode === "list" && (
-                <div className="flex items-center gap-4 px-4 py-2 text-xs text-[#F5F0EB]/30 border-b border-[#F5F0EB]/10">
+                <div className="flex items-center gap-4 px-4 py-2 text-xs font-semibold text-gray-500 border-b border-[#E5DDCF] uppercase tracking-wider">
                   <div className="w-10" />
                   <div className="w-10" />
                   <div className="flex-1">Category</div>
@@ -891,129 +639,174 @@ export default function CategoriesPage() {
         )}
       </div>
 
+      {/* Hidden File Input for Image Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageFileChange}
+        accept="image/png, image/jpeg, image/jpg, image/webp"
+        className="hidden"
+      />
+
+      {/* Category Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#2A2A2A] border-[#F5F0EB]/10 max-w-lg">
+        <DialogContent className="bg-white border-[#E5DDCF] text-[#1A1A1A] max-w-lg rounded-xl shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#F5F0EB] font-light tracking-wide">
+            <DialogTitle className="text-[#1A1A1A] font-semibold text-lg">
               {editingCategory ? "Edit Category" : "Create Category"}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="max-h-[60vh] overflow-y-auto pr-1.5 space-y-5 pb-4">
-              <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Name</label>
+            <div className="max-h-[65vh] overflow-y-auto pr-1.5 space-y-4 pb-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">
+                  Name <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("name")}
                   placeholder="Category name"
-                  className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200"
+                  className="bg-white border-[#E5DDCF] text-[#1A1A1A] placeholder:text-gray-400 focus:border-[#7A6543]"
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-400">{errors.name.message}</p>
+                  <p className="text-xs text-red-500 font-medium">{errors.name.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Description</label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Description</label>
                 <Textarea
                   {...register("description")}
                   placeholder="Category description"
                   rows={3}
-                  className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200 resize-none"
+                  className="bg-white border-[#E5DDCF] text-[#1A1A1A] placeholder:text-gray-400 focus:border-[#7A6543] resize-none"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Parent Category</label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Parent Category</label>
                 <div className="relative">
                   <select
                     value={watch("parentId")}
                     onChange={(e) => setValue("parentId", e.target.value)}
-                    className="flex h-10 w-full appearance-none rounded-lg border border-[#F5F0EB]/10 bg-[#F5F0EB]/5 px-3 py-2 pr-10 text-sm text-[#F5F0EB] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                    className="flex h-10 w-full appearance-none rounded-lg border border-[#E5DDCF] bg-white px-3 py-2 pr-10 text-sm text-[#1A1A1A] transition-colors focus:outline-none focus:border-[#7A6543]"
                   >
-                    <option value="" className="bg-[#2A2A2A] text-[#F5F0EB]">
-                      None (Top level)
-                    </option>
+                    <option value="">None (Top level)</option>
                     {parentCategories.map((cat) => (
-                      <option
-                        key={cat.id}
-                        value={cat.id}
-                        className="bg-[#2A2A2A] text-[#F5F0EB]"
-                      >
+                      <option key={cat.id} value={cat.id}>
                         {cat.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0EB]/40 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Image</label>
-                <div className="border-2 border-dashed border-[#F5F0EB]/10 rounded-lg p-6 text-center hover:border-[#C9A96E]/30 transition-colors cursor-pointer">
-                  <Upload className="w-8 h-8 mx-auto text-[#F5F0EB]/20 mb-2" />
-                  <p className="text-sm text-[#F5F0EB]/40">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-[#F5F0EB]/20 mt-1">
-                    PNG, JPG up to 5MB
-                  </p>
-                </div>
+              {/* Image Upload Box */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Category Image</label>
+                {imagePreview ? (
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden border border-[#E5DDCF] bg-gray-50 group">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-white text-gray-800 hover:bg-gray-100 text-xs"
+                      >
+                        Change Image
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFile(null)
+                          setImagePreview(null)
+                          setValue("image", "")
+                        }}
+                        className="text-xs"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-[#E5DDCF] rounded-xl p-6 text-center hover:border-[#7A6543] transition-colors cursor-pointer bg-[#FDFBF9] hover:bg-[#F5F0EB]/50"
+                  >
+                    <Upload className="w-8 h-8 mx-auto text-[#7A6543] mb-2" />
+                    <p className="text-sm font-medium text-[#1A1A1A]">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      PNG, JPG, WEBP up to 10MB
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-[#F5F0EB]/10">
-                <p className="text-xs text-[#F5F0EB]/30 uppercase tracking-wider">
+              {/* SEO Section */}
+              <div className="space-y-3 pt-3 border-t border-[#E5DDCF]">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   SEO Settings
                 </p>
-                <div className="space-y-2">
-                  <label className="text-sm text-[#F5F0EB]/60">SEO Title</label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">SEO Title</label>
                   <Input
                     {...register("seoTitle")}
                     placeholder="SEO title"
-                    className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200"
+                    className="bg-white border-[#E5DDCF] text-[#1A1A1A] placeholder:text-gray-400 focus:border-[#7A6543]"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-[#F5F0EB]/60">
-                    SEO Description
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">SEO Description</label>
                   <Textarea
                     {...register("seoDescription")}
                     placeholder="SEO description"
                     rows={2}
-                    className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200 resize-none"
+                    className="bg-white border-[#E5DDCF] text-[#1A1A1A] placeholder:text-gray-400 focus:border-[#7A6543] resize-none"
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <label className="text-sm text-[#F5F0EB]/60">Active</label>
+                <label className="text-sm font-medium text-gray-700">Active Status</label>
                 <Switch
                   checked={watch("isActive")}
                   onCheckedChange={(checked) => setValue("isActive", checked)}
-                  className="data-[state=checked]:bg-[#C9A96E]"
+                  className="data-[state=checked]:bg-[#7A6543]"
                 />
               </div>
             </div>
 
-            <DialogFooter className="pt-4 border-t border-[#F5F0EB]/10">
+            <DialogFooter className="pt-4 border-t border-[#E5DDCF]">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 onClick={() => {
                   setIsDialogOpen(false)
                   setEditingCategory(null)
+                  setSelectedFile(null)
+                  setImagePreview(null)
                   reset()
                 }}
-                className="text-[#F5F0EB]/60 hover:text-[#F5F0EB] hover:bg-[#F5F0EB]/5"
+                className="border-[#E5DDCF] text-gray-700 hover:bg-[#F5F0EB]"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="bg-[#C9A96E] hover:bg-[#C9A96E]/90 text-[#1A1A1A] font-medium px-6"
+                disabled={saveMutation.isPending}
+                className="bg-[#7A6543] hover:bg-[#7A6543]/90 text-white font-medium px-6"
               >
-                {createMutation.isPending || updateMutation.isPending
+                {saveMutation.isPending
                   ? "Saving..."
                   : editingCategory
                   ? "Update Category"
@@ -1024,45 +817,61 @@ export default function CategoriesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[#2A2A2A] border-[#F5F0EB]/10 max-w-md">
+        <DialogContent className="bg-white border-[#E5DDCF] text-[#1A1A1A] max-w-md rounded-xl shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#F5F0EB] font-light tracking-wide">
+            <DialogTitle className="text-[#1A1A1A] font-semibold text-lg">
               Delete Category
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-[#F5F0EB]/60">
-              Are you sure you want to delete{" "}
-              <span className="text-[#F5F0EB] font-medium">
-                {deletingCategory?.name}
-              </span>
-              ? This action cannot be undone.
-            </p>
-            {deletingCategory?.children && deletingCategory.children.length > 0 && (
-              <p className="text-xs text-red-400/80 mt-2">
-                This category has {deletingCategory.children.length} subcategories
-                that will also be deleted.
+          <div className="py-3 space-y-2">
+            {isDeleteBlocked ? (
+              <p className="text-sm text-gray-600">
+                <span className="text-[#1A1A1A] font-semibold">
+                  {deletingCategoryLabel}
+                </span>{" "}
+                cannot be deleted while it contains {deletingCategory?.productCount} product
+                {deletingCategory?.productCount === 1 ? "" : "s"}. Move those products to another category first.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600">
+                Are you sure you want to delete{" "}
+                <span className="text-[#1A1A1A] font-semibold">
+                  {deletingCategory?.name}
+                </span>
+                ? This action cannot be undone.
+              </p>
+            )}
+            {!isDeletingUncategorized && deletingCategory && deletingCategory.productCount > 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                Its {deletingCategory.productCount} product{deletingCategory.productCount === 1 ? "" : "s"} will be moved to Uncategorized.
+              </p>
+            )}
+            {!isDeleteBlocked && deletingCategory?.children && deletingCategory.children.length > 0 && (
+              <p className="text-xs text-red-700 bg-red-50 p-2 rounded-lg border border-red-200">
+                Its {deletingCategory.children.length} subcategor{deletingCategory.children.length === 1 ? "y" : "ies"}
+                will be retained and moved to top level.
               </p>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => {
                 setIsDeleteDialogOpen(false)
                 setDeletingCategory(null)
               }}
-              className="text-[#F5F0EB]/60 hover:text-[#F5F0EB] hover:bg-[#F5F0EB]/5"
+              className="border-[#E5DDCF] text-gray-700 hover:bg-[#F5F0EB]"
             >
               Cancel
             </Button>
             <Button
-              onClick={() => deletingCategory && deleteMutation.mutate(deletingCategory.id)}
-              disabled={deleteMutation.isPending}
-              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+              onClick={() => deletingCategory && !isDeleteBlocked && deleteMutation.mutate(deletingCategory.id)}
+              disabled={deleteMutation.isPending || isDeleteBlocked}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium px-5"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete Category"}
+              {isDeleteBlocked ? "Cannot Delete" : deleteMutation.isPending ? "Deleting..." : "Delete Category"}
             </Button>
           </DialogFooter>
         </DialogContent>

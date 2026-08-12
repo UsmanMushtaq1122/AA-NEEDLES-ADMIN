@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
 interface RequestOptions extends RequestInit {
   token?: string;
@@ -6,13 +6,17 @@ interface RequestOptions extends RequestInit {
 
 class ApiClient {
   private baseUrl: string;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
   private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const { token, ...fetchOptions } = options;
+    const { token: explicitToken, ...fetchOptions } = options;
+    const storedToken = this.getAccessToken();
+    const token = explicitToken || storedToken;
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string> || {}),
@@ -27,6 +31,10 @@ class ApiClient {
       headers,
     });
 
+    if (response.status === 304) {
+      return {} as T;
+    }
+
     if (response.status === 401) {
       const refreshed = await this.refreshToken();
       if (refreshed) {
@@ -37,6 +45,9 @@ class ApiClient {
             ...fetchOptions,
             headers,
           });
+          if (retryResponse.status === 304) {
+            return {} as T;
+          }
           if (!retryResponse.ok) {
             throw new ApiError("Unauthorized", retryResponse.status);
           }
@@ -72,7 +83,8 @@ class ApiClient {
     if (typeof window === "undefined") return;
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("refreshToken", refreshToken);
-    document.cookie = `accessToken=${accessToken}; path=/; SameSite=Lax; max-age=${7 * 24 * 60 * 60}`;
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `accessToken=${accessToken}; path=/; SameSite=Strict${secure}; max-age=${7 * 24 * 60 * 60}`;
   }
 
   private clearAuth() {
@@ -80,15 +92,27 @@ class ApiClient {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-    document.cookie = "accessToken=; path=/; max-age=0";
+    document.cookie = `accessToken=; path=/; max-age=0`;
   }
 
   private async refreshToken(): Promise<boolean> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this._refreshToken().finally(() => {
+      this.refreshPromise = null;
+    });
+
+    return this.refreshPromise;
+  }
+
+  private async _refreshToken(): Promise<boolean> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) return false;
 
     try {
-      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+      const response = await fetch(`${this.baseUrl}/auth/refresh-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
@@ -98,7 +122,7 @@ class ApiClient {
 
       const data = await response.json();
       if (data.success && data.data) {
-        this.setTokens(data.data.accessToken, data.data.refreshToken);
+        this.setTokens(data.data.token, data.data.refreshToken);
         return true;
       }
       return false;
@@ -139,17 +163,44 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "DELETE", token });
   }
 
-  async upload<T>(endpoint: string, formData: FormData, token?: string): Promise<T> {
+  async upload<T>(endpoint: string, formData: FormData, method: string = "POST", token?: string): Promise<T> {
     const headers: Record<string, string> = {};
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    const storedToken = this.getAccessToken();
+    const authToken = token || storedToken;
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
     }
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: "POST",
+      method,
       headers,
       body: formData,
     });
+
+    if (response.status === 401) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) {
+        const newToken = this.getAccessToken();
+        if (newToken) {
+          headers["Authorization"] = `Bearer ${newToken}`;
+          const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, {
+            method,
+            headers,
+            body: formData,
+          });
+          if (!retryResponse.ok) {
+            const error = await retryResponse.json().catch(() => ({ message: "Upload failed" }));
+            throw new ApiError(error.message || "Upload failed", retryResponse.status);
+          }
+          return retryResponse.json();
+        }
+      }
+      if (typeof window !== "undefined") {
+        this.clearAuth();
+        window.location.href = "/admin/login";
+      }
+      throw new ApiError("Unauthorized", 401);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: "Upload failed" }));

@@ -1,39 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
   Search,
   Download,
-  ChevronDown,
-  ChevronUp,
   Phone,
   Mail,
   MapPin,
   ShoppingBag,
-  Calendar,
   Eye,
   MoreHorizontal,
   User,
-  TrendingUp,
-  FileText,
   ToggleLeft,
   ToggleRight,
   ArrowUpDown,
-  Filter,
   X,
-  Star,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -51,7 +44,6 @@ import {
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
@@ -65,192 +57,13 @@ interface Customer {
   totalSpent: number;
   lastOrder: string;
   status: "active" | "inactive";
+  emailVerified?: boolean;
   joinedDate: string;
   addresses: { label: string; address: string; city: string; isDefault: boolean }[];
   orders: { id: string; date: string; total: number; status: string; items: number }[];
   notes: string;
   tier: "gold" | "silver" | "platinum";
 }
-
-const mockCustomers: Customer[] = [
-  {
-    id: "c1",
-    name: "Ayesha Khan",
-    email: "ayesha.khan@gmail.com",
-    phone: "+92 321 4567890",
-    avatar: "AK",
-    totalOrders: 23,
-    totalSpent: 345000,
-    lastOrder: "2026-07-15",
-    status: "active",
-    joinedDate: "2024-03-12",
-    addresses: [
-      { label: "Home", address: "42-B, Gulberg III", city: "Lahore", isDefault: true },
-      { label: "Office", address: "15, Mall Road, Cantt", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7891", date: "2026-07-15", total: 28500, status: "delivered", items: 3 },
-      { id: "ORD-7845", date: "2026-06-28", total: 15200, status: "delivered", items: 1 },
-      { id: "ORD-7801", date: "2026-06-10", total: 42000, status: "delivered", items: 5 },
-      { id: "ORD-7756", date: "2026-05-22", total: 18900, status: "delivered", items: 2 },
-      { id: "ORD-7701", date: "2026-05-01", total: 32000, status: "delivered", items: 4 },
-    ],
-    notes: "VIP customer. Prefers silk fabrics. Birthday: September 14.",
-    tier: "platinum",
-  },
-  {
-    id: "c2",
-    name: "Fatima Ahmed",
-    email: "fatima.ahmed@outlook.com",
-    phone: "+92 300 1234567",
-    avatar: "FA",
-    totalOrders: 15,
-    totalSpent: 210000,
-    lastOrder: "2026-07-10",
-    status: "active",
-    joinedDate: "2024-06-20",
-    addresses: [
-      { label: "Home", address: "7, Clifton Block 5", city: "Karachi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7876", date: "2026-07-10", total: 19800, status: "delivered", items: 2 },
-      { id: "ORD-7823", date: "2026-06-15", total: 35000, status: "delivered", items: 3 },
-      { id: "ORD-7789", date: "2026-05-30", total: 12500, status: "delivered", items: 1 },
-    ],
-    notes: "Loves the bridal collection. Size: M.",
-    tier: "gold",
-  },
-  {
-    id: "c3",
-    name: "Noor Malik",
-    email: "noor.malik@yahoo.com",
-    phone: "+92 333 9876543",
-    avatar: "NM",
-    totalOrders: 8,
-    totalSpent: 95000,
-    lastOrder: "2026-07-05",
-    status: "active",
-    joinedDate: "2025-01-10",
-    addresses: [
-      { label: "Home", address: "22, F-8/2", city: "Islamabad", isDefault: true },
-      { label: "Parents", address: "5, DHA Phase 6", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7855", date: "2026-07-05", total: 22000, status: "delivered", items: 2 },
-      { id: "ORD-7800", date: "2026-06-01", total: 16500, status: "delivered", items: 1 },
-    ],
-    notes: "Interested in couture pieces.",
-    tier: "silver",
-  },
-  {
-    id: "c4",
-    name: "Hira Shah",
-    email: "hira.shah@hotmail.com",
-    phone: "+92 312 5551234",
-    avatar: "HS",
-    totalOrders: 31,
-    totalSpent: 520000,
-    lastOrder: "2026-07-16",
-    status: "active",
-    joinedDate: "2023-11-05",
-    addresses: [
-      { label: "Home", address: "10, Bahria Town Phase 4", city: "Rawalpindi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7899", date: "2026-07-16", total: 55000, status: "processing", items: 6 },
-      { id: "ORD-7888", date: "2026-07-12", total: 18900, status: "delivered", items: 2 },
-      { id: "ORD-7850", date: "2026-06-25", total: 42000, status: "delivered", items: 4 },
-      { id: "ORD-7812", date: "2026-06-08", total: 29000, status: "delivered", items: 3 },
-    ],
-    notes: "Top spender. Early access to new collections.",
-    tier: "platinum",
-  },
-  {
-    id: "c5",
-    name: "Zainab Raza",
-    email: "zainab.raza@gmail.com",
-    phone: "+92 345 6789012",
-    avatar: "ZR",
-    totalOrders: 5,
-    totalSpent: 67500,
-    lastOrder: "2026-06-20",
-    status: "active",
-    joinedDate: "2025-09-15",
-    addresses: [
-      { label: "Home", address:  "33, DHA Phase 2", city: "Lahore", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7830", date: "2026-06-20", total: 24000, status: "delivered", items: 2 },
-      { id: "ORD-7780", date: "2026-05-18", total: 18500, status: "delivered", items: 1 },
-    ],
-    notes: "Referred by Ayesha Khan.",
-    tier: "silver",
-  },
-  {
-    id: "c6",
-    name: "Sana Javed",
-    email: "sana.javed@outlook.com",
-    phone: "+92 300 4443210",
-    avatar: "SJ",
-    totalOrders: 12,
-    totalSpent: 156000,
-    lastOrder: "2026-05-30",
-    status: "inactive",
-    joinedDate: "2024-08-22",
-    addresses: [
-      { label: "Home", address: "8, Nazimabad No. 3", city: "Karachi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7790", date: "2026-05-30", total: 14200, status: "delivered", items: 1 },
-      { id: "ORD-7730", date: "2026-04-15", total: 28000, status: "delivered", items: 3 },
-    ],
-    notes: "Last contacted about sale items.",
-    tier: "silver",
-  },
-  {
-    id: "c7",
-    name: "Mehreen Iqbal",
-    email: "mehreen.iqbal@gmail.com",
-    phone: "+92 322 8765432",
-    avatar: "MI",
-    totalOrders: 19,
-    totalSpent: 278000,
-    lastOrder: "2026-07-14",
-    status: "active",
-    joinedDate: "2024-02-14",
-    addresses: [
-      { label: "Home", address: "14, Wapda Town", city: "Lahore", isDefault: true },
-      { label: "Office", address: "5, Johar Town Block G", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7893", date: "2026-07-14", total: 31000, status: "shipped", items: 3 },
-      { id: "ORD-7860", date: "2026-07-01", total: 19500, status: "delivered", items: 2 },
-      { id: "ORD-7810", date: "2026-06-05", total: 45000, status: "delivered", items: 5 },
-    ],
-    notes: "Enjoys festive collection. Prefers emerald tones.",
-    tier: "gold",
-  },
-  {
-    id: "c8",
-    name: "Rabia Tariq",
-    email: "rabia.tariq@yahoo.com",
-    phone: "+92 311 2345678",
-    avatar: "RT",
-    totalOrders: 3,
-    totalSpent: 28500,
-    lastOrder: "2026-04-12",
-    status: "inactive",
-    joinedDate: "2026-01-05",
-    addresses: [
-      { label: "Home", address: "20, Satellite Town", city: "Gujranwala", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7720", date: "2026-04-12", total: 14500, status: "delivered", items: 1 },
-    ],
-    notes: "New customer. Size S.",
-    tier: "silver",
-  },
-];
 
 const statusColors: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -267,8 +80,16 @@ const tierColors: Record<string, string> = {
 };
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    api.get<any>("/customers")
+      .then((res) => setCustomers(res.data?.customers || []))
+      .catch(() => setCustomers([]))
+      .finally(() => setLoading(false));
+  }, []);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -303,12 +124,28 @@ export default function CustomersPage() {
     }
   };
 
-  const toggleCustomerStatus = (id: string) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, status: c.status === "active" ? "inactive" : "active" } : c
-      )
-    );
+  const toggleCustomerStatus = async (id: string) => {
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return;
+    const newStatus = customer.status === "active" ? "inactive" : "active";
+    try {
+      await api.put(`/customers/${id}`, { status: newStatus });
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+      );
+    } catch {}
+  };
+
+  const manuallyVerifyCustomer = async (id: string) => {
+    try {
+      await api.post(`/customers/${id}/verify-email`, {});
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, emailVerified: true } : c))
+      );
+      if (selectedCustomer?.id === id) {
+        setSelectedCustomer((prev) => prev ? { ...prev, emailVerified: true } : null);
+      }
+    } catch {}
   };
 
   const openDetail = (customer: Customer) => {
@@ -317,11 +154,14 @@ export default function CustomersPage() {
     setDetailOpen(true);
   };
 
-  const saveNotes = () => {
+  const saveNotes = async () => {
     if (selectedCustomer) {
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === selectedCustomer.id ? { ...c, notes: editNotes } : c))
-      );
+      try {
+        await api.put(`/customers/${selectedCustomer.id}`, { notes: editNotes });
+        setCustomers((prev) =>
+          prev.map((c) => (c.id === selectedCustomer.id ? { ...c, notes: editNotes } : c))
+        );
+      } catch {}
     }
   };
 
@@ -556,6 +396,17 @@ export default function CustomersPage() {
                                   </>
                                 )}
                               </DropdownMenuItem>
+                              {!customer.emailVerified && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    manuallyVerifyCustomer(customer.id);
+                                  }}
+                                  className="font-light text-sm cursor-pointer text-[#7A6543]"
+                                >
+                                  Manually Verify OTP/Email
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

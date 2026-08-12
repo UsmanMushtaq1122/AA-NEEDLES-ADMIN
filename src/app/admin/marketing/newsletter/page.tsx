@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
 import { motion } from "framer-motion";
 import {
   AreaChart,
@@ -44,24 +46,6 @@ import {
 import { formatDate, cn } from "@/lib/utils";
 import type { Subscriber } from "@/types";
 
-const mockSubscribers: Subscriber[] = [
-  { id: "1", email: "aisha.khan@gmail.com", name: "Aisha Khan", isActive: true, createdAt: "2026-01-15T10:00:00Z" },
-  { id: "2", email: "fatima.ahmed@yahoo.com", name: "Fatima Ahmed", isActive: true, createdAt: "2026-02-03T14:30:00Z" },
-  { id: "3", email: "zainab.ali@outlook.com", name: "Zainab Ali", isActive: false, createdAt: "2026-01-22T09:15:00Z" },
-  { id: "4", email: "sana.malik@hotmail.com", name: "Sana Malik", isActive: true, createdAt: "2026-03-10T11:45:00Z" },
-  { id: "5", email: "hira.rafique@gmail.com", name: "Hira Rafique", isActive: true, createdAt: "2026-03-18T16:20:00Z" },
-  { id: "6", email: "mehak.butto@yahoo.com", name: "Mehak Butto", isActive: true, createdAt: "2026-04-01T08:00:00Z" },
-  { id: "7", email: "noor.javed@gmail.com", name: "Noor Javed", isActive: false, createdAt: "2026-02-14T13:10:00Z" },
-  { id: "8", email: "rimsha.tariq@outlook.com", name: "Rimsha Tariq", isActive: true, createdAt: "2026-04-22T10:50:00Z" },
-  { id: "9", email: "dania.hussain@gmail.com", name: "Dania Hussain", isActive: true, createdAt: "2026-05-05T15:30:00Z" },
-  { id: "10", email: "kinza.shahid@yahoo.com", name: "Kinza Shahid", isActive: true, createdAt: "2026-05-18T09:00:00Z" },
-  { id: "11", email: "amna.rauf@gmail.com", name: "Amna Rauf", isActive: true, createdAt: "2026-06-01T12:00:00Z" },
-  { id: "12", email: "hiba.naveed@hotmail.com", name: "Hiba Naveed", isActive: false, createdAt: "2026-06-10T14:20:00Z" },
-  { id: "13", email: "maheen.abbas@gmail.com", name: "Maheen Abbas", isActive: true, createdAt: "2026-06-22T11:15:00Z" },
-  { id: "14", email: "siddiqa.kamran@outlook.com", name: "Siddiqa Kamran", isActive: true, createdAt: "2026-07-02T08:45:00Z" },
-  { id: "15", email: "navira.saeed@gmail.com", name: "Navira Saeed", isActive: true, createdAt: "2026-07-10T16:00:00Z" },
-];
-
 const chartData = [
   { month: "Jan", subscribers: 42 },
   { month: "Feb", subscribers: 78 },
@@ -73,9 +57,25 @@ const chartData = [
 ];
 
 export default function NewsletterPage() {
-  const [subscribers, setSubscribers] = useState<Subscriber[]>(mockSubscribers);
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const { toast } = useToast();
+
+  const fetchSubscribers = useCallback(() => {
+    setLoading(true);
+    api.get<any>("/newsletter")
+      .then((res) => {
+        setSubscribers(res.data || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchSubscribers();
+  }, [fetchSubscribers]);
 
   const filtered = useMemo(() => {
     return subscribers.filter((s) => {
@@ -98,14 +98,26 @@ export default function NewsletterPage() {
   ).length;
   const growthRate = 18.4;
 
-  const toggleActive = (id: string) => {
-    setSubscribers((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
-    );
+  const toggleActive = async (id: string) => {
+    const sub = subscribers.find((s) => s.id === id);
+    if (!sub) return;
+    try {
+      await api.put(`/newsletter/${id}`, { isActive: !sub.isActive });
+      toast("success", "Subscriber status updated");
+      fetchSubscribers();
+    } catch (err: any) {
+      toast("error", err.message || "Failed to update subscriber");
+    }
   };
 
-  const removeSubscriber = (id: string) => {
-    setSubscribers((prev) => prev.filter((s) => s.id !== id));
+  const removeSubscriber = async (id: string) => {
+    try {
+      await api.delete(`/newsletter/${id}`);
+      toast("success", "Subscriber removed successfully");
+      fetchSubscribers();
+    } catch (err: any) {
+      toast("error", err.message || "Failed to delete subscriber");
+    }
   };
 
   const exportCSV = () => {
@@ -301,7 +313,13 @@ export default function NewsletterPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-gray-500">
+                        Loading subscribers...
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center text-gray-500">
                         No subscribers found.
@@ -329,7 +347,7 @@ export default function NewsletterPage() {
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger>
+                            <DropdownMenuTrigger asChild>
                               <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>

@@ -66,6 +66,7 @@ const contentSection: NavSection = {
     { label: "Pages", href: "/admin/content/pages", icon: File },
     { label: "Locations", href: "/admin/content/locations", icon: MapPin },
     { label: "Careers", href: "/admin/content/careers", icon: Briefcase },
+    { label: "Job Applications", href: "/admin/content/careers/applications", icon: FileText },
   ],
 };
 

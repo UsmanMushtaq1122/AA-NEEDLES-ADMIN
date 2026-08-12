@@ -1,17 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { loginSchema } from "@/lib/validations";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type LoginFormData = {
@@ -20,13 +20,13 @@ type LoginFormData = {
   rememberMe: boolean;
 };
 
-function LoginForm() {
+function LoginForm({ redirect = "/admin" }: { redirect?: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login, isLoading, isAuthenticated } = useAuth();
+  const { login, isLoading: authLoading, isAuthenticated } = useAuth();
 
   const {
     register,
@@ -41,19 +41,49 @@ function LoginForm() {
     },
   });
 
-  const redirect = searchParams.get("redirect") || "/admin";
+  // Redirect already-authenticated users to the dashboard
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace(redirect);
+    }
+  }, [authLoading, isAuthenticated, router, redirect]);
 
+  // Show loading spinner while auth state is being determined
+  if (authLoading) {
+    return (
+      <Card className="border-0 shadow-2xl shadow-black/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: "#C9A96E", borderTopColor: "transparent" }} />
+          <p className="mt-4 text-sm" style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}>
+            Loading...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Don't render the form if already authenticated (redirect is in progress)
   if (isAuthenticated) {
-    return null;
+    return (
+      <Card className="border-0 shadow-2xl shadow-black/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: "#C9A96E", borderTopColor: "transparent" }} />
+          <p className="mt-4 text-sm" style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}>
+            Redirecting to dashboard...
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const onSubmit = async (data: any) => {
     setError(null);
     setIsLocked(false);
+    setIsSubmitting(true);
 
     try {
-      await login(data.email, data.password);
-      router.push(redirect);
+      await login(data.email, data.password, data.rememberMe);
+      router.replace(redirect);
     } catch (err: any) {
       const message = err?.message || "An unexpected error occurred";
 
@@ -70,11 +100,13 @@ function LoginForm() {
       } else {
         setError(message);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Card className="border-0 shadow-2xl shadow-black/10" style={{ backgroundColor: "#FFFFFF" }}>
+    <Card className="border-0 shadow-2xl shadow-black/10">
       <CardHeader className="text-center pb-2">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -128,7 +160,7 @@ function LoginForm() {
               id="email"
               type="email"
               placeholder="admin@aanneddles.com"
-              disabled={isLoading || isLocked}
+              disabled={isSubmitting || isLocked}
               className="h-12 px-4 text-sm rounded-lg border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
               style={{
                 fontFamily: "'Inter', sans-serif",
@@ -157,7 +189,7 @@ function LoginForm() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
-                disabled={isLoading || isLocked}
+                disabled={isSubmitting || isLocked}
                 className="h-12 px-4 pr-12 text-sm rounded-lg border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
                 style={{
                   fontFamily: "'Inter', sans-serif",
@@ -169,7 +201,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading || isLocked}
+                disabled={isSubmitting || isLocked}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors duration-200"
                 style={{ color: "#1A1A1A80" }}
                 tabIndex={-1}
@@ -188,7 +220,7 @@ function LoginForm() {
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
-                disabled={isLoading || isLocked}
+                disabled={isSubmitting || isLocked}
                 className="w-4 h-4 rounded border-gray-300 accent-current cursor-pointer"
                 style={{ accentColor: "#C9A96E" }}
                 {...register("rememberMe")}
@@ -204,7 +236,7 @@ function LoginForm() {
 
           <Button
             type="submit"
-            disabled={isLoading || isLocked}
+            disabled={isSubmitting || isLocked}
             className="w-full h-12 text-sm font-semibold uppercase tracking-widest rounded-lg transition-all duration-300 hover:shadow-lg"
             style={{
               fontFamily: "'Inter', sans-serif",
@@ -212,7 +244,7 @@ function LoginForm() {
               color: "#FFFFFF",
             }}
           >
-            {isLoading ? (
+            {isSubmitting ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Signing In...
@@ -237,25 +269,23 @@ function LoginForm() {
   );
 }
 
+function LoginFormWrapper() {
+  const [redirect, setRedirect] = useState("/admin");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRedirect(params.get("redirect") || "/admin");
+  }, []);
+
+  return <LoginForm redirect={redirect} />;
+}
+
 export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F5F0EB" }}>
-      <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-md"
-      >
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#C9A96E] border-t-transparent" />
-            </div>
-          }
-        >
-          <LoginForm />
-        </Suspense>
-      </motion.div>
+      <div className="w-full max-w-md">
+        <LoginFormWrapper />
+      </div>
     </div>
   );
 }

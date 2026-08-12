@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").regex(/[A-Z]/, "Must contain at least one uppercase letter").regex(/[a-z]/, "Must contain at least one lowercase letter").regex(/[0-9]/, "Must contain at least one number"),
   rememberMe: z.boolean().default(false),
 });
 
@@ -24,23 +24,44 @@ export const resetPasswordSchema = z.object({
 });
 
 export const productSchema = z.object({
-  name: z.string().min(1, "Product name is required"),
+  name: z.string().min(1, "Product name is required."),
   slug: z.string().optional(),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().min(1, "Product description is required."),
   shortDescription: z.string().optional(),
-  price: z.number().min(0, "Price must be positive"),
-  compareAtPrice: z.number().optional(),
-  costPrice: z.number().optional(),
-  sku: z.string().min(1, "SKU is required"),
+  price: z
+    .number("Invalid price value entered.")
+    .finite("Invalid price value entered.")
+    .min(0, "Invalid price value entered."),
+  compareAtPrice: z
+    .number("Invalid price value entered.")
+    .finite("Invalid price value entered.")
+    .optional()
+    .catch(undefined),
+  costPrice: z
+    .number("Invalid price value entered.")
+    .finite("Invalid price value entered.")
+    .optional()
+    .catch(undefined),
+  sku: z.string().min(1, "SKU is required."),
   barcode: z.string().optional(),
-  stock: z.number().min(0, "Stock must be non-negative"),
-  lowStockThreshold: z.number().default(5),
-  weight: z.number().optional(),
+  stock: z
+    .number("Invalid stock value entered.")
+    .finite("Invalid stock value entered.")
+    .min(0, "Stock cannot be negative."),
+  lowStockThreshold: z
+    .number("Invalid low stock threshold value entered.")
+    .finite("Invalid low stock threshold value entered.")
+    .catch(5),
+  weight: z
+    .number("Invalid weight value entered.")
+    .finite("Invalid weight value entered.")
+    .optional()
+    .catch(undefined),
   status: z.enum(["active", "draft", "archived"]),
   isFeatured: z.boolean().default(false),
   isNewArrival: z.boolean().default(false),
   isBestSeller: z.boolean().default(false),
-  categoryIds: z.array(z.string()).min(1, "At least one category is required"),
+  categoryIds: z.array(z.string()).min(1, "Please select at least one category."),
   tags: z.array(z.string()).default([]),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),

@@ -5,13 +5,21 @@ import { motion } from "framer-motion";
 import { useMutation } from "@tanstack/react-query";
 import { ProductForm } from "@/components/products/product-form";
 import { useToast } from "@/components/ui/toast";
+import { api, ApiError } from "@/lib/api";
 
-function createProduct(data: Record<string, unknown>): Promise<{ success: boolean; data: { id: string } }> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true, data: { id: "new-prod-1", ...data } });
-    }, 1000);
-  });
+function toCreateProductPayload(data: Record<string, unknown>) {
+  const { categoryIds, ...rest } = data;
+  const selectedCategoryIds = Array.isArray(categoryIds) ? categoryIds : [];
+
+  return {
+    ...rest,
+    categoryId: selectedCategoryIds[0],
+  };
+}
+
+async function createProduct(data: Record<string, unknown>): Promise<{ success: boolean; data: { id: string } }> {
+  const res = await api.post<any>("/products", data);
+  return res;
 }
 
 export default function NewProductPage() {
@@ -24,8 +32,18 @@ export default function NewProductPage() {
       toast("success", "Product created successfully");
       router.push("/admin/products");
     },
-    onError: () => {
-      toast("error", "Failed to create product");
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          toast("error", "This product already exists.");
+        } else if (err.status === 400) {
+          toast("error", err.message || "Please fill in all required fields.");
+        } else {
+          toast("error", "Something went wrong. Please try again.");
+        }
+      } else {
+        toast("error", "Something went wrong. Please try again.");
+      }
     },
   });
 
@@ -42,7 +60,7 @@ export default function NewProductPage() {
       </motion.div>
 
       <ProductForm
-        onSubmit={(data) => mutation.mutate(data as Record<string, unknown>)}
+        onSubmit={(data) => mutation.mutate(toCreateProductPayload(data as Record<string, unknown>))}
         isLoading={mutation.isPending}
       />
     </div>

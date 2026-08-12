@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { api } from "@/lib/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
@@ -10,7 +11,6 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Ticket,
   Copy,
   Check,
 } from "lucide-react";
@@ -34,7 +34,6 @@ import {
   DialogContent,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -46,89 +45,7 @@ import {
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { Coupon } from "@/types";
 
-const mockCoupons: Coupon[] = [
-  {
-    id: "1",
-    code: "SUMMER25",
-    description: "25% off on summer collection",
-    type: "percentage",
-    value: 25,
-    minOrderAmount: 5000,
-    maxDiscountAmount: 3000,
-    usageLimit: 200,
-    usedCount: 87,
-    expiresAt: "2026-08-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "2",
-    code: "FESTIVE500",
-    description: "Rs. 500 off on festive wear",
-    type: "fixed",
-    value: 500,
-    minOrderAmount: 3000,
-    usageLimit: 500,
-    usedCount: 312,
-    expiresAt: "2026-07-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-05-15T00:00:00Z",
-  },
-  {
-    id: "3",
-    code: "NEWUSER15",
-    description: "15% off for first-time buyers",
-    type: "percentage",
-    value: 15,
-    minOrderAmount: 2000,
-    maxDiscountAmount: 2000,
-    usageLimit: 1000,
-    usedCount: 456,
-    isActive: true,
-    createdAt: "2026-01-01T00:00:00Z",
-  },
-  {
-    id: "4",
-    code: "EID2026",
-    description: "Eid special - 20% off",
-    type: "percentage",
-    value: 20,
-    minOrderAmount: 8000,
-    maxDiscountAmount: 5000,
-    usageLimit: 300,
-    usedCount: 300,
-    expiresAt: "2026-04-15T23:59:59Z",
-    isActive: false,
-    createdAt: "2026-03-20T00:00:00Z",
-  },
-  {
-    id: "5",
-    code: "VIP1000",
-    description: "Rs. 1000 off for VIP members",
-    type: "fixed",
-    value: 1000,
-    minOrderAmount: 10000,
-    usageLimit: 100,
-    usedCount: 34,
-    expiresAt: "2026-12-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-02-01T00:00:00Z",
-  },
-  {
-    id: "6",
-    code: "BRIDAL30",
-    description: "30% off bridal collection",
-    type: "percentage",
-    value: 30,
-    minOrderAmount: 15000,
-    maxDiscountAmount: 10000,
-    usageLimit: 50,
-    usedCount: 12,
-    expiresAt: "2026-12-25T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-07-01T00:00:00Z",
-  },
-];
+
 
 const couponFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -155,10 +72,18 @@ const defaultFormValues: CouponFormData = {
 };
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>(mockCoupons);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<any>("/coupons")
+      .then((res) => setCoupons(res.data || []))
+      .catch(() => setCoupons([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const {
     register,
@@ -197,58 +122,38 @@ export default function CouponsPage() {
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: CouponFormData) => {
-    if (editingId) {
-      setCoupons((prev) =>
-        prev.map((c) =>
-          c.id === editingId
-            ? {
-                ...c,
-                code: data.code.toUpperCase(),
-                description: data.description,
-                type: data.type,
-                value: data.value,
-                minOrderAmount: data.minOrderAmount,
-                maxDiscountAmount: data.maxDiscountAmount || undefined,
-                usageLimit: data.usageLimit || undefined,
-                expiresAt: data.expiresAt
-                  ? new Date(data.expiresAt).toISOString()
-                  : undefined,
-              }
-            : c
-        )
-      );
-    } else {
-      const newCoupon: Coupon = {
-        id: Date.now().toString(),
-        code: data.code.toUpperCase(),
-        description: data.description,
-        type: data.type,
-        value: data.value,
-        minOrderAmount: data.minOrderAmount || undefined,
-        maxDiscountAmount: data.maxDiscountAmount || undefined,
-        usageLimit: data.usageLimit || undefined,
-        usedCount: 0,
-        expiresAt: data.expiresAt
-          ? new Date(data.expiresAt).toISOString()
-          : undefined,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      setCoupons((prev) => [newCoupon, ...prev]);
-    }
+  const onSubmit = async (data: CouponFormData) => {
+    try {
+      if (editingId) {
+        await api.put(`/coupons/${editingId}`, data);
+      } else {
+        await api.post("/coupons", data);
+      }
+      const res = await api.get<any>("/coupons");
+      setCoupons(res.data || []);
+    } catch {}
     setDialogOpen(false);
+    setEditingId(null);
     reset(defaultFormValues);
   };
 
-  const toggleActive = (id: string) => {
-    setCoupons((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
-    );
+  const toggleActive = async (id: string) => {
+    try {
+      const coupon = coupons.find((c) => c.id === id);
+      if (coupon) {
+        await api.put(`/coupons/${id}`, { isActive: !coupon.isActive });
+        setCoupons((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
+        );
+      }
+    } catch {}
   };
 
-  const deleteCoupon = (id: string) => {
-    setCoupons((prev) => prev.filter((c) => c.id !== id));
+  const deleteCoupon = async (id: string) => {
+    try {
+      await api.delete(`/coupons/${id}`);
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+    } catch {}
   };
 
   const copyCode = (code: string, id: string) => {
@@ -374,7 +279,7 @@ export default function CouponsPage() {
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
-                        <DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild>
                           <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
                             <MoreHorizontal className="h-4 w-4" />
                           </button>

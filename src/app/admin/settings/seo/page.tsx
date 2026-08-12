@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { seoSettingsSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
+import { api } from "@/lib/api";
+import { seoSettingsSchema } from "@/lib/validations";
 
 type SEOForm = {
   metaTitle: string;
@@ -21,44 +22,49 @@ type SEOForm = {
   canonicalUrl: boolean;
 };
 
-const MOCK_SEO: SEOForm = {
-  metaTitle: "AA Neddles | Luxury Fashion & Premium Clothing Pakistan",
-  metaDescription:
-    "Discover handcrafted luxury fashion at AA Neddles. Premium kurtis, suits, sarees & accessories with timeless Pakistani elegance.",
-  baseUrl: "https://aaneddles.com",
-  canonicalUrl: true,
-};
-
-function saveSEO(_data: SEOForm): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
-}
-
 export default function SEOSettingsPage() {
   const { toast } = useToast();
-  const [titleCharCount, setTitleCharCount] = useState(
-    MOCK_SEO.metaTitle.length
-  );
-  const [descCharCount, setDescCharCount] = useState(
-    MOCK_SEO.metaDescription.length
-  );
+  const [loading, setLoading] = useState(true);
+  const [titleCharCount, setTitleCharCount] = useState(0);
+  const [descCharCount, setDescCharCount] = useState(0);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<SEOForm>({
     resolver: zodResolver(seoSettingsSchema) as any,
-    defaultValues: MOCK_SEO,
+    defaultValues: {},
   });
+
+  const fetchSEOSettings = useCallback(async () => {
+    try {
+      const res: any = await api.get("/settings/seo");
+      if (res.success && res.data?.seo) {
+        reset(res.data.seo);
+        if (res.data.seo.metaTitle) setTitleCharCount(res.data.seo.metaTitle.length);
+        if (res.data.seo.metaDescription) setDescCharCount(res.data.seo.metaDescription.length);
+      }
+    } catch {
+      // not created yet, keep defaults
+    } finally {
+      setLoading(false);
+    }
+  }, [reset]);
+
+  useEffect(() => {
+    fetchSEOSettings();
+  }, [fetchSEOSettings]);
 
   const metaTitle = watch("metaTitle");
   const metaDescription = watch("metaDescription");
   const baseUrl = watch("baseUrl");
 
   const saveMutation = useMutation({
-    mutationFn: saveSEO,
+    mutationFn: (data: SEOForm) => api.put("/settings/seo", { value: data }),
     onSuccess: () => {
       toast("success", "SEO settings saved successfully");
     },

@@ -6,8 +6,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  PanelLeftClose,
-  PanelLeftOpen,
   Search,
   Bell,
   LogOut,
@@ -32,6 +30,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { STORE_URL } from "@/lib/config";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { useAuth } from "@/hooks/useAuth";
 import { toggleSidebar } from "@/store/slices/uiSlice";
@@ -181,15 +180,7 @@ export default function AdminHeader() {
       <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[#1A1A1A]/10 bg-white/90 px-4 md:px-6 backdrop-blur-md shadow-xs transition-all">
         {/* Left Section: Sidebar Toggle & Breadcrumbs */}
         <div className="flex items-center gap-3 md:gap-4">
-          <button
-            onClick={() => dispatch(toggleSidebar())}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-[#1A1A1A]/70 transition-all hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A] active:scale-95"
-            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
-          </button>
-
-          <div className="h-4 w-px bg-gray-200" />
+          {/* Sidebar toggle removed as requested */}
 
           <Breadcrumbs pathname={pathname} />
         </div>
@@ -280,7 +271,7 @@ export default function AdminHeader() {
                   </Link>
                   <div className="my-1 h-px bg-stone-100" />
                   <a
-                    href="/"
+                    href={STORE_URL}
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => setQuickAddOpen(false)}
@@ -507,7 +498,7 @@ export default function AdminHeader() {
                       Store Preferences
                     </Link>
                     <a
-                      href="/"
+                      href={STORE_URL}
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => setProfileOpen(false)}

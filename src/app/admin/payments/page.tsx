@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  DollarSign,
   CheckCircle2,
   Clock,
   XCircle,
@@ -43,124 +42,11 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatCurrency, formatDateTime, formatDate, cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import type { Transaction } from "@/types";
 
-const mockTransactions: Transaction[] = [
-  {
-    id: "TXN-001",
-    orderId: "ORD-4501",
-    orderNumber: "AA-4501",
-    amount: 18500,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-18T10:30:00Z",
-  },
-  {
-    id: "TXN-002",
-    orderId: "ORD-4500",
-    orderNumber: "AA-4500",
-    amount: 24000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkx7a2eZvKYlo2C",
-    createdAt: "2026-07-17T16:45:00Z",
-  },
-  {
-    id: "TXN-003",
-    orderId: "ORD-4499",
-    orderNumber: "AA-4499",
-    amount: 6500,
-    method: "cod",
-    status: "pending",
-    createdAt: "2026-07-17T09:15:00Z",
-  },
-  {
-    id: "TXN-004",
-    orderId: "ORD-4498",
-    orderNumber: "AA-4498",
-    amount: 12800,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkw5b2eZvKYlo2C",
-    createdAt: "2026-07-16T14:20:00Z",
-  },
-  {
-    id: "TXN-005",
-    orderId: "ORD-4497",
-    orderNumber: "AA-4497",
-    amount: 31000,
-    method: "card",
-    status: "refunded",
-    reference: "stripe_re_3Nkv4a2eZvKYlo2C",
-    createdAt: "2026-07-15T11:00:00Z",
-  },
-  {
-    id: "TXN-006",
-    orderId: "ORD-4496",
-    orderNumber: "AA-4496",
-    amount: 9500,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-14T08:30:00Z",
-  },
-  {
-    id: "TXN-007",
-    orderId: "ORD-4495",
-    orderNumber: "AA-4495",
-    amount: 4200,
-    method: "card",
-    status: "failed",
-    reference: "stripe_pi_3Nkt3a2eZvKYlo2C",
-    createdAt: "2026-07-13T17:10:00Z",
-  },
-  {
-    id: "TXN-008",
-    orderId: "ORD-4494",
-    orderNumber: "AA-4494",
-    amount: 15600,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-12T12:00:00Z",
-  },
-  {
-    id: "TXN-009",
-    orderId: "ORD-4493",
-    orderNumber: "AA-4493",
-    amount: 21000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkr2a2eZvKYlo2C",
-    createdAt: "2026-07-11T15:45:00Z",
-  },
-  {
-    id: "TXN-010",
-    orderId: "ORD-4492",
-    orderNumber: "AA-4492",
-    amount: 7800,
-    method: "cod",
-    status: "pending",
-    createdAt: "2026-07-10T10:15:00Z",
-  },
-  {
-    id: "TXN-011",
-    orderId: "ORD-4491",
-    orderNumber: "AA-4491",
-    amount: 42000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkp1a2eZvKYlo2C",
-    createdAt: "2026-07-09T09:00:00Z",
-  },
-  {
-    id: "TXN-012",
-    orderId: "ORD-4490",
-    orderNumber: "AA-4490",
-    amount: 3500,
-    method: "cod",
-    status: "failed",
-    createdAt: "2026-07-08T13:30:00Z",
-  },
-];
+
 
 const filterTabs = [
   { key: "all", label: "All" },
@@ -177,10 +63,43 @@ const statusConfig: Record<string, { color: string; bg: string }> = {
   pending: { color: "text-amber-700", bg: "bg-amber-50 text-amber-700 border-amber-200" },
   failed: { color: "text-red-700", bg: "bg-red-50 text-red-700 border-red-200" },
   refunded: { color: "text-orange-700", bg: "bg-orange-50 text-orange-700 border-orange-200" },
+  partially_refunded: { color: "text-orange-600", bg: "bg-orange-50 text-orange-600 border-orange-200" },
 };
 
 export default function PaymentsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refunding, setRefunding] = useState(false);
+  const { toast } = useToast();
+
+  const fetchPayments = () => {
+    setLoading(true);
+    api.get<any>("/payments")
+      .then((res) => {
+        const paymentsList = res.data?.payments || (Array.isArray(res.data) ? res.data : []);
+        const mapped = paymentsList.map((p: any) => ({
+          id: p.id,
+          orderId: p.orderId,
+          orderNumber: p.order?.orderNumber || "AA-N/A",
+          amount: p.amount,
+          method: p.paymentMethod ? p.paymentMethod.toLowerCase() : "cod",
+          status: (p.status === "COMPLETED" || p.status === "PAID" || p.status === "completed" || p.status === "paid")
+            ? "completed"
+            : (p.status === "PARTIALLY_REFUNDED" || p.status === "partially_refunded")
+            ? "partially_refunded"
+            : p.status ? p.status.toLowerCase() : "pending",
+          reference: p.reference || "",
+          createdAt: p.createdAt,
+        }));
+        setTransactions(mapped);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -214,7 +133,7 @@ export default function PaymentsPage() {
     {
       title: "Total Revenue",
       value: formatCurrency(totalRevenue),
-      icon: DollarSign,
+      icon: Banknote,
       color: "text-[#7A6543]",
       bg: "bg-[#C9A96E]/10",
     },
@@ -241,16 +160,28 @@ export default function PaymentsPage() {
     },
   ];
 
-  const handleRefund = () => {
+  const handleRefund = async () => {
     if (!refundDialog) return;
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === refundDialog.id ? { ...t, status: "refunded" as const } : t
-      )
-    );
-    setRefundDialog(null);
-    setRefundAmount("");
-    setRefundReason("");
+    setRefunding(true);
+    try {
+      const res: any = await api.post(`/payments/${refundDialog.id}/refund`, {
+        amount: parseFloat(refundAmount),
+        reason: refundReason,
+      });
+      if (res.success) {
+        toast("success", "Refund processed successfully");
+        fetchPayments();
+      } else {
+        toast("error", res.message || "Failed to process refund");
+      }
+    } catch (err: any) {
+      toast("error", err.message || "Failed to process refund");
+    } finally {
+      setRefunding(false);
+      setRefundDialog(null);
+      setRefundAmount("");
+      setRefundReason("");
+    }
   };
 
   const processRefund = (tx: Transaction) => {
@@ -390,7 +321,13 @@ export default function PaymentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center text-gray-500">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="h-24 text-center text-gray-500">
                         No transactions found.
@@ -441,7 +378,7 @@ export default function PaymentsPage() {
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger>
+                            <DropdownMenuTrigger asChild>
                               <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
@@ -605,6 +542,7 @@ export default function PaymentsPage() {
                     setRefundAmount("");
                     setRefundReason("");
                   }}
+                  disabled={refunding}
                 >
                   Cancel
                 </Button>
@@ -612,9 +550,10 @@ export default function PaymentsPage() {
                   variant="destructive"
                   onClick={handleRefund}
                   className="gap-1.5"
+                  disabled={refunding}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Process Refund
+                  {refunding ? "Processing..." : "Process Refund"}
                 </Button>
               </div>
             </div>

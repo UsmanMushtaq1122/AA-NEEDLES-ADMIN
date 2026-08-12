@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Provider } from "react-redux";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { makeStore } from "@/store";
+import { ToastProvider } from "@/components/ui/toast";
 
 const store = makeStore();
 
@@ -34,7 +35,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </QueryClientProvider>
     </Provider>
   );

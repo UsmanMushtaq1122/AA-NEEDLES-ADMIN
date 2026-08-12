@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   Plus,
   Pencil,
@@ -50,92 +52,7 @@ interface Testimonial {
   date: string;
 }
 
-const mockTestimonials: Testimonial[] = [
-  {
-    id: "t1",
-    customerName: "Ayesha Khan",
-    customerPhoto: "AK",
-    content: "AA Neddles has completely transformed my wardrobe. The quality of their fabrics is unmatched — every piece feels like it was made just for me. The Eid collection was absolutely stunning.",
-    rating: 5,
-    type: "gallery",
-    mediaUrl: "/testimonials/ayesha.jpg",
-    active: true,
-    order: 0,
-    date: "2026-07-12",
-  },
-  {
-    id: "t2",
-    customerName: "Fatima Ahmed",
-    customerPhoto: "FA",
-    content: "I ordered the bridal lehenga and it exceeded all my expectations. The craftsmanship is incredible and the team was so helpful throughout the process. Highly recommend!",
-    rating: 5,
-    type: "video",
-    mediaUrl: "/testimonials/fatima-video.mp4",
-    active: true,
-    order: 1,
-    date: "2026-07-08",
-  },
-  {
-    id: "t3",
-    customerName: "Hira Shah",
-    customerPhoto: "HS",
-    content: "The summer linen collection is everything. Light, breathable, and so elegant. I wore their coord set to a garden party and received endless compliments. This brand understands modern Pakistani women.",
-    rating: 5,
-    type: "instagram",
-    mediaUrl: "https://instagram.com/p/xxxxx",
-    active: true,
-    order: 2,
-    date: "2026-06-30",
-  },
-  {
-    id: "t4",
-    customerName: "Noor Malik",
-    customerPhoto: "NM",
-    content: "I've been a customer for over a year now and every purchase has been flawless. Their customer service is as exceptional as their clothing. The attention to detail in every stitch shows true dedication to the craft.",
-    rating: 4,
-    type: "gallery",
-    mediaUrl: "/testimonials/noor.jpg",
-    active: true,
-    order: 3,
-    date: "2026-06-20",
-  },
-  {
-    id: "t5",
-    customerName: "Mehreen Iqbal",
-    customerPhoto: "MI",
-    content: "Their festive collection is my go-to for every wedding season. The colors are rich, the embroidery is detailed, and the fit is always perfect. Worth every rupee.",
-    rating: 5,
-    type: "story",
-    mediaUrl: "/testimonials/mehreen-story.jpg",
-    active: false,
-    order: 4,
-    date: "2026-06-15",
-  },
-  {
-    id: "t6",
-    customerName: "Zainab Raza",
-    customerPhoto: "ZR",
-    content: "I purchased the silk dupatta collection as a gift for my mother and she was absolutely thrilled. The packaging was beautiful and the quality spoke for itself. Thank you, AA Neddles!",
-    rating: 4,
-    type: "gallery",
-    mediaUrl: "/testimonials/zainab.jpg",
-    active: true,
-    order: 5,
-    date: "2026-06-10",
-  },
-  {
-    id: "t7",
-    customerName: "Sana Javed",
-    customerPhoto: "SJ",
-    content: "The monsoon collection is gorgeous. I love how they blend traditional Pakistani aesthetics with contemporary design. Every piece tells a story.",
-    rating: 5,
-    type: "instagram",
-    mediaUrl: "https://instagram.com/p/yyyyy",
-    active: true,
-    order: 6,
-    date: "2026-06-05",
-  },
-];
+
 
 const typeConfig: Record<string, { label: string; icon: any; color: string }> = {
   gallery: { label: "Gallery", icon: Image, color: "bg-[#C9A96E]/10 text-[#7A6543] border-[#C9A96E]/20" },
@@ -145,8 +62,18 @@ const typeConfig: Record<string, { label: string; icon: any; color: string }> = 
 };
 
 export default function TestimonialsPage() {
-  const [testimonials, setTestimonials] = useState(mockTestimonials);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    api.get<any>("/testimonials")
+      .then((res) => setTestimonials(res.data || []))
+      .catch(() => setTestimonials([]))
+      .finally(() => setLoading(false));
+  }, []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Testimonial | null>(null);
   const [form, setForm] = useState({
@@ -179,43 +106,77 @@ export default function TestimonialsPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setTestimonials((prev) =>
-        prev.map((t) => (t.id === editingItem.id ? { ...t, ...form } : t))
-      );
-    } else {
-      setTestimonials((prev) => [
-        ...prev,
-        {
-          id: `t${Date.now()}`,
-          ...form,
-          customerPhoto: form.customerName.split(" ").map((n) => n[0]).join(""),
-          order: prev.length,
-          date: new Date().toISOString().split("T")[0],
-        },
-      ]);
+  const handleSave = async () => {
+    setActionLoading("save");
+    try {
+      const payload = {
+        customerName: form.customerName,
+        content: form.content,
+        rating: form.rating,
+        type: form.type,
+        mediaUrl: form.mediaUrl,
+        isActive: form.active,
+        sortOrder: editingItem ? editingItem.order : testimonials.length,
+      };
+      if (editingItem) {
+        await api.put(`/testimonials/${editingItem.id}`, payload);
+        toast("success", "Testimonial updated successfully");
+      } else {
+        await api.post("/testimonials", payload);
+        toast("success", "Testimonial added successfully");
+      }
+      const res = await api.get<any>("/testimonials");
+      setTestimonials(res.data || []);
+      setDialogOpen(false);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to save testimonial");
+    } finally {
+      setActionLoading(null);
     }
-    setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setTestimonials((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, active: !t.active } : t))
-    );
+  const toggleActive = async (id: string) => {
+    const testimonial = testimonials.find((t) => t.id === id);
+    if (!testimonial) return;
+    try {
+      await api.put(`/testimonials/${id}`, { isActive: !testimonial.active });
+      toast("success", "Status updated successfully");
+      const res = await api.get<any>("/testimonials");
+      setTestimonials(res.data || []);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to toggle status");
+    }
   };
 
-  const moveItem = (id: string, direction: "up" | "down") => {
+  const moveItem = async (id: string, direction: "up" | "down") => {
     const idx = testimonials.findIndex((t) => t.id === id);
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= testimonials.length) return;
-    const newList = [...testimonials];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    setTestimonials(newList);
+
+    const currentItem = testimonials[idx];
+    const swapItem = testimonials[newIdx];
+
+    try {
+      await Promise.all([
+        api.put(`/testimonials/${currentItem.id}`, { sortOrder: swapItem.order }),
+        api.put(`/testimonials/${swapItem.id}`, { sortOrder: currentItem.order }),
+      ]);
+      toast("success", "Order updated successfully");
+      const res = await api.get<any>("/testimonials");
+      setTestimonials(res.data || []);
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to update order");
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setTestimonials((prev) => prev.filter((t) => t.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      await api.delete(`/testimonials/${id}`);
+      toast("success", "Testimonial deleted successfully");
+      setTestimonials((prev) => prev.filter((t) => t.id !== id));
+    } catch (error: any) {
+      toast("error", error?.message || "Failed to delete testimonial");
+    }
   };
 
   return (
@@ -438,8 +399,12 @@ export default function TestimonialsPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">
-                {editingItem ? "Save Changes" : "Add Testimonial"}
+              <Button
+                onClick={handleSave}
+                className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
+                disabled={actionLoading === "save"}
+              >
+                {actionLoading === "save" ? "Saving..." : editingItem ? "Save Changes" : "Add Testimonial"}
               </Button>
             </div>
           </div>

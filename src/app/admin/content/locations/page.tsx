@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -26,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface StoreLocation {
   id: string;
@@ -36,68 +37,15 @@ interface StoreLocation {
   phone: string;
   email: string;
   hours: string;
-  lat: number;
-  lng: number;
-  active: boolean;
+  latitude: number;
+  longitude: number;
+  isActive: boolean;
 }
 
-const mockLocations: StoreLocation[] = [
-  {
-    id: "loc1",
-    name: "AA Neddles — Flagship Store",
-    address: "24-C, MM Alam Road, Gulberg III",
-    city: "Lahore",
-    province: "Punjab",
-    phone: "+92 42 3578 1234",
-    email: "lahore@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 31.5204,
-    lng: 74.3587,
-    active: true,
-  },
-  {
-    id: "loc2",
-    name: "AA Neddles — Clifton",
-    address: "Block 5, Seaview Boulevard",
-    city: "Karachi",
-    province: "Sindh",
-    phone: "+92 21 3587 5678",
-    email: "karachi@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 24.8607,
-    lng: 67.0011,
-    active: true,
-  },
-  {
-    id: "loc3",
-    name: "AA Neddles — F-8",
-    address: "15, Jinnah Avenue, F-8/2",
-    city: "Islamabad",
-    province: "Islamabad Capital Territory",
-    phone: "+92 51 2654 9012",
-    email: "islamabad@aanneddles.com",
-    hours: "Mon-Sat: 10:00 AM - 8:00 PM | Sun: Closed",
-    lat: 33.6844,
-    lng: 73.0479,
-    active: true,
-  },
-  {
-    id: "loc4",
-    name: "AA Neddles — DHA",
-    address: "33, Commercial Area, DHA Phase 6",
-    city: "Lahore",
-    province: "Punjab",
-    phone: "+92 42 3713 4567",
-    email: "dha@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 31.4739,
-    lng: 74.3740,
-    active: false,
-  },
-];
+
 
 export default function LocationsPage() {
-  const [locations, setLocations] = useState(mockLocations);
+  const [locations, setLocations] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
   const [form, setForm] = useState({
@@ -108,10 +56,22 @@ export default function LocationsPage() {
     phone: "",
     email: "",
     hours: "",
-    lat: 0,
-    lng: 0,
-    active: true,
+    latitude: 0,
+    longitude: 0,
+    isActive: true,
   });
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await api.get<any>("/locations");
+        setLocations(res.data);
+      } catch (error) {
+        console.error("Failed to fetch locations", error);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   const openAdd = () => {
     setEditingLocation(null);
@@ -123,9 +83,9 @@ export default function LocationsPage() {
       phone: "",
       email: "",
       hours: "",
-      lat: 31.5204,
-      lng: 74.3587,
-      active: true,
+      latitude: 31.5204,
+      longitude: 74.3587,
+      isActive: true,
     });
     setDialogOpen(true);
   };
@@ -140,35 +100,50 @@ export default function LocationsPage() {
       phone: loc.phone,
       email: loc.email,
       hours: loc.hours,
-      lat: loc.lat,
-      lng: loc.lng,
-      active: loc.active,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      isActive: loc.isActive,
     });
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingLocation) {
-      setLocations((prev) =>
-        prev.map((l) => (l.id === editingLocation.id ? { ...l, ...form } : l))
-      );
-    } else {
-      setLocations((prev) => [
-        ...prev,
-        { id: `loc${Date.now()}`, ...form },
-      ]);
+  const handleSave = async () => {
+    try {
+      if (editingLocation) {
+        const { data } = await api.put<any>(`/locations/${editingLocation.id}`, form);
+        setLocations((prev) =>
+          prev.map((l) => (l.id === editingLocation.id ? { ...l, ...data } : l))
+        );
+      } else {
+        const { data } = await api.post<any>("/locations", form);
+        setLocations((prev) => [...prev, data]);
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to save location", error);
     }
-    setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setLocations((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, active: !l.active } : l))
-    );
+  const toggleActive = async (id: string) => {
+    const loc = locations.find((l) => l.id === id);
+    if (!loc) return;
+    try {
+      const { data } = await api.patch<any>(`/locations/${id}`, { isActive: !loc.isActive });
+      setLocations((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, isActive: data.isActive } : l))
+      );
+    } catch (error) {
+      console.error("Failed to toggle status", error);
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setLocations((prev) => prev.filter((l) => l.id !== id));
+  const deleteItem = async (id: string) => {
+    try {
+      await api.delete(`/locations/${id}`);
+      setLocations((prev) => prev.filter((l) => l.id !== id));
+    } catch (error) {
+      console.error("Failed to delete location", error);
+    }
   };
 
   return (
@@ -204,7 +179,7 @@ export default function LocationsPage() {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium text-[#1A1A1A]">{loc.name}</h3>
-                              {!loc.active && (
+                              {!loc.isActive && (
                                 <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
                                   Inactive
                                 </Badge>
@@ -214,7 +189,7 @@ export default function LocationsPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Switch
-                              checked={loc.active}
+                              checked={loc.isActive}
                               onCheckedChange={() => toggleActive(loc.id)}
                             />
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(loc)}>
@@ -274,14 +249,14 @@ export default function LocationsPage() {
                   </div>
                   <div className="mt-4 space-y-2">
                     {locations
-                      .filter((l) => l.active)
+                      .filter((l) => l.isActive)
                       .map((loc) => (
                         <div key={loc.id} className="flex items-center gap-2 text-xs text-[#1A1A1A]/50 font-light">
                           <div className="w-1.5 h-1.5 rounded-full bg-[#C9A96E]" />
                           <span>{loc.city}</span>
                           <span className="text-[#1A1A1A]/20">·</span>
                           <span className="text-[#1A1A1A]/30">
-                            {loc.lat.toFixed(2)}°N, {loc.lng.toFixed(2)}°E
+                            {loc.latitude.toFixed(2)}°N, {loc.longitude.toFixed(2)}°E
                           </span>
                         </div>
                       ))}
@@ -374,8 +349,8 @@ export default function LocationsPage() {
                 <Input
                   type="number"
                   step="any"
-                  value={form.lat}
-                  onChange={(e) => setForm({ ...form, lat: parseFloat(e.target.value) || 0 })}
+                  value={form.latitude}
+                  onChange={(e) => setForm({ ...form, latitude: parseFloat(e.target.value) || 0 })}
                   className="border-stone-200 bg-[#F5F0EB]/50 font-light font-mono text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
                 />
               </div>
@@ -384,15 +359,15 @@ export default function LocationsPage() {
                 <Input
                   type="number"
                   step="any"
-                  value={form.lng}
-                  onChange={(e) => setForm({ ...form, lng: parseFloat(e.target.value) || 0 })}
+                  value={form.longitude}
+                  onChange={(e) => setForm({ ...form, longitude: parseFloat(e.target.value) || 0 })}
                   className="border-stone-200 bg-[#F5F0EB]/50 font-light font-mono text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
                 />
               </div>
             </div>
             <div className="flex items-center justify-between">
               <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">Active</label>
-              <Switch checked={form.active} onCheckedChange={(checked) => setForm({ ...form, active: checked })} />
+              <Switch checked={form.isActive} onCheckedChange={(checked) => setForm({ ...form, isActive: checked })} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
