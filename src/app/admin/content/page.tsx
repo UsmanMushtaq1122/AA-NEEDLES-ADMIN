@@ -12,6 +12,7 @@ import {
   Briefcase,
   ChevronRight,
   LayoutDashboard,
+  Menu,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,15 @@ const sections = [
     color: "from-rose-50 to-[#C9A96E]/5",
     iconColor: "text-rose-500",
   },
+  {
+    title: "Navigation Menu",
+    description: "Mobile hamburger menu, tabs, subcategories, and promotional links",
+    href: "/admin/content/navigation",
+    icon: Menu,
+    count: null,
+    color: "from-[#C9A96E]/10 to-[#1A1A1A]/5",
+    iconColor: "text-[#7A6543]",
+  },
 ];
 
 export default function ContentPage() {
@@ -135,7 +145,7 @@ export default function ContentPage() {
                             </p>
                           </div>
                           <span className="text-xs text-[#1A1A1A]/20 font-light bg-[#F5F0EB] rounded-full px-2.5 py-1 shrink-0 ml-3">
-                            {section.count}
+                            {section.count !== null ? section.count : ""}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 mt-4 text-xs text-[#7A6543] font-light opacity-0 group-hover:opacity-100 transition-opacity">

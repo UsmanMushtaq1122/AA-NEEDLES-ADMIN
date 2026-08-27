@@ -19,6 +19,17 @@ export interface AuthState {
   isLoading: boolean;
 }
 
+export interface DescriptionSection {
+  title: string;
+  items: string[];
+}
+
+export interface DescriptionSections {
+  color: string;
+  sections: DescriptionSection[];
+  note: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -41,6 +52,9 @@ export interface Product {
   categories: Category[];
   categoryId?: string;
   variants?: ProductVariant[];
+  descriptionSections?: DescriptionSections;
+  fabric?: string;
+  careInstructions?: string[];
   seoTitle?: string;
   seoDescription?: string;
   tags: string[];
@@ -103,6 +117,7 @@ export interface Order {
   notes?: string;
   internalNotes?: string;
   statusHistory: OrderStatusEntry[];
+  validTransitions?: string[];
   createdAt: string;
   updatedAt: string;
 }

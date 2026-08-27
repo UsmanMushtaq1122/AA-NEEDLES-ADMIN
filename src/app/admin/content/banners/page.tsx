@@ -43,6 +43,7 @@ interface HeroBanner {
   title: string;
   subtitle: string;
   imageUrl: string;
+  mobileImage: string;
   link: string;
   buttonText: string;
   active: boolean;
@@ -54,6 +55,7 @@ interface EditorialBanner {
   title: string;
   subtitle: string;
   imageUrl: string;
+  mobileImage: string;
   link: string;
   active: boolean;
   order: number;
@@ -88,6 +90,7 @@ export default function BannersPage() {
           title: b.title,
           subtitle: b.subtitle || "",
           imageUrl: b.image || "",
+          mobileImage: b.mobileImage || "",
           link: b.link || "",
           buttonText: b.buttonText || "",
           active: b.isActive,
@@ -114,6 +117,7 @@ export default function BannersPage() {
     title: "",
     subtitle: "",
     imageUrl: "",
+    mobileImageUrl: "",
     link: "",
     buttonText: "",
     active: true,
@@ -123,6 +127,8 @@ export default function BannersPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [mobileSelectedFile, setMobileSelectedFile] = useState<File | null>(null);
+  const [mobileImagePreview, setMobileImagePreview] = useState<string>("");
 
   const openAdd = (type: typeof dialogType) => {
     setEditingBanner(null);
@@ -131,6 +137,7 @@ export default function BannersPage() {
       title: "",
       subtitle: "",
       imageUrl: "",
+      mobileImageUrl: "",
       link: "",
       buttonText: "",
       active: true,
@@ -140,6 +147,8 @@ export default function BannersPage() {
     });
     setSelectedFile(null);
     setImagePreview("");
+    setMobileSelectedFile(null);
+    setMobileImagePreview("");
     setDialogOpen(true);
   };
 
@@ -161,12 +170,15 @@ export default function BannersPage() {
         title: banner.title,
         subtitle: banner.subtitle || "",
         imageUrl: banner.imageUrl,
+        mobileImageUrl: banner.mobileImage,
         link: banner.link,
         buttonText: banner.buttonText || "",
         active: banner.active,
       });
       setSelectedFile(null);
       setImagePreview(banner.imageUrl || "");
+      setMobileSelectedFile(null);
+      setMobileImagePreview(banner.mobileImage || "");
     }
     setDialogOpen(true);
   };
@@ -174,7 +186,7 @@ export default function BannersPage() {
   const handleSave = async () => {
     setActionLoading("save");
 
-    if (dialogType !== "announcement" && !selectedFile) {
+    if (dialogType !== "announcement" && !selectedFile && !form.imageUrl) {
       toast("error", "Please upload an image");
       return;
     }
@@ -197,6 +209,11 @@ export default function BannersPage() {
       formData.append("image", selectedFile);
     } else if (form.imageUrl) {
       formData.append("imageUrl", form.imageUrl);
+    }
+    if (mobileSelectedFile) {
+      formData.append("mobileImage", mobileSelectedFile);
+    } else if (form.mobileImageUrl) {
+      formData.append("mobileImageUrl", form.mobileImageUrl);
     }
     if (!editingBanner) {
       formData.append("sortOrder", String(dialogType === "hero" ? heroBanners.length : dialogType === "editorial" ? editorialBanners.length : 0));
@@ -327,29 +344,34 @@ export default function BannersPage() {
                           </div>
                           <div className="flex-1 p-5 flex flex-col justify-between">
                             <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-medium text-[#1A1A1A]">{banner.title}</h3>
-                                {!banner.active && (
-                                  <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
-                                    Draft
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-[#1A1A1A]/50 font-light">{banner.subtitle}</p>
-                              <p className="text-xs text-[#7A6543] mt-1 font-light flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" />
-                                {banner.link}
-                              </p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-[#1A1A1A]">{banner.title}</h3>
+                              {banner.mobileImage && (
+                                <Badge className="text-[9px] uppercase tracking-wider bg-[#C9A96E]/15 text-[#7A6543] border-0">
+                                  Mobile
+                                </Badge>
+                              )}
+                              {!banner.active && (
+                                <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
+                                  Draft
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex items-center justify-between mt-3">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-[#1A1A1A]/30 hover:text-[#1A1A1A]"
-                                  onClick={() => moveItem(banner.id, "up", "hero")}
-                                  disabled={index === 0}
-                                >
+                            <p className="text-sm text-[#1A1A1A]/50 font-light">{banner.subtitle}</p>
+                            <p className="text-xs text-[#7A6543] mt-1 font-light flex items-center gap-1">
+                              <LinkIcon className="w-3 h-3" />
+                              {banner.link}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-[#1A1A1A]/30 hover:text-[#1A1A1A]"
+                                onClick={() => moveItem(banner.id, "up", "hero")}
+                                disabled={index === 0}
+                              >
                                   <ChevronUp className="w-4 h-4" />
                                 </Button>
                                 <Button
@@ -667,12 +689,16 @@ export default function BannersPage() {
                 </div>
                 <div>
                   <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
-                    Banner Image
+                    Desktop Banner Image
                   </label>
+                  <p className="text-[11px] text-[#7A6543] mb-2 font-light leading-snug">
+                    Recommended: 1920 × 900 px (landscape). Keep important content
+                    and subjects centered with safe margins so nothing is cropped.
+                  </p>
                   <label className="flex items-center justify-center gap-2 border-2 border-dashed border-stone-200 rounded-lg p-4 cursor-pointer hover:border-[#C9A96E] transition-colors bg-[#F5F0EB]/40">
                     <Upload className="w-4 h-4 text-[#1A1A1A]/40" />
                     <span className="text-sm font-light text-[#1A1A1A]/60">
-                      {selectedFile ? selectedFile.name : "Click to upload image"}
+                      {selectedFile ? selectedFile.name : "Click to upload desktop image"}
                     </span>
                     <input
                       type="file"
@@ -693,6 +719,42 @@ export default function BannersPage() {
                     <img
                       src={imagePreview}
                       alt="Banner preview"
+                      className="mt-3 w-full h-48 md:h-40 object-cover rounded-lg border border-stone-200"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
+                    Mobile Banner Image <span className="normal-case tracking-normal text-[#7A6543]/60">(Optional — Recommended)</span>
+                  </label>
+                  <p className="text-[11px] text-[#7A6543] mb-2 font-light leading-snug">
+                    Recommended: 1080 × 1350 px (portrait). Used on phones to avoid
+                    cropping. If skipped, the desktop image is used on mobile too.
+                  </p>
+                  <label className="flex items-center justify-center gap-2 border-2 border-dashed border-stone-200 rounded-lg p-4 cursor-pointer hover:border-[#C9A96E] transition-colors bg-[#F5F0EB]/40">
+                    <Upload className="w-4 h-4 text-[#1A1A1A]/40" />
+                    <span className="text-sm font-light text-[#1A1A1A]/60">
+                      {mobileSelectedFile ? mobileSelectedFile.name : "Click to upload mobile image"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setMobileSelectedFile(file);
+                        if (file) {
+                          setMobileImagePreview(URL.createObjectURL(file));
+                        } else {
+                          setMobileImagePreview("");
+                        }
+                      }}
+                    />
+                  </label>
+                  {mobileImagePreview && (
+                    <img
+                      src={mobileImagePreview}
+                      alt="Mobile banner preview"
                       className="mt-3 w-full h-48 md:h-40 object-cover rounded-lg border border-stone-200"
                     />
                   )}

@@ -23,37 +23,50 @@ export const resetPasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+export const descriptionSectionSchema = z.object({
+  title: z.string().default(""),
+  items: z.array(z.string()).default([]),
+});
+
+export const descriptionSectionsSchema = z
+  .object({
+    color: z.string().default(""),
+    sections: z.array(descriptionSectionSchema).default([]),
+    note: z.string().default(""),
+  })
+  .default({ color: "", sections: [], note: "" });
+
 export const productSchema = z.object({
   name: z.string().min(1, "Product name is required."),
   slug: z.string().optional(),
-  description: z.string().min(1, "Product description is required."),
+  description: z.string().optional().default(""),
   shortDescription: z.string().optional(),
   price: z
-    .number("Invalid price value entered.")
+    .number({ invalid_type_error: "Invalid price value entered." })
     .finite("Invalid price value entered.")
     .min(0, "Invalid price value entered."),
   compareAtPrice: z
-    .number("Invalid price value entered.")
+    .number({ invalid_type_error: "Invalid price value entered." })
     .finite("Invalid price value entered.")
     .optional()
     .catch(undefined),
   costPrice: z
-    .number("Invalid price value entered.")
+    .number({ invalid_type_error: "Invalid price value entered." })
     .finite("Invalid price value entered.")
     .optional()
     .catch(undefined),
   sku: z.string().min(1, "SKU is required."),
   barcode: z.string().optional(),
   stock: z
-    .number("Invalid stock value entered.")
+    .number({ invalid_type_error: "Invalid stock value entered." })
     .finite("Invalid stock value entered.")
     .min(0, "Stock cannot be negative."),
   lowStockThreshold: z
-    .number("Invalid low stock threshold value entered.")
+    .number({ invalid_type_error: "Invalid low stock threshold value entered." })
     .finite("Invalid low stock threshold value entered.")
     .catch(5),
   weight: z
-    .number("Invalid weight value entered.")
+    .number({ invalid_type_error: "Invalid weight value entered." })
     .finite("Invalid weight value entered.")
     .optional()
     .catch(undefined),
@@ -63,6 +76,9 @@ export const productSchema = z.object({
   isBestSeller: z.boolean().default(false),
   categoryIds: z.array(z.string()).min(1, "Please select at least one category."),
   tags: z.array(z.string()).default([]),
+  descriptionSections: descriptionSectionsSchema,
+  fabric: z.string().default(""),
+  careInstructions: z.array(z.string()).default([]),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
 });

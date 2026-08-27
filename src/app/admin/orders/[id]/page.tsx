@@ -84,6 +84,7 @@ export default function OrderDetailPage() {
         internalNotes: rawOrder.internalNotes || "",
         trackingNumber: rawOrder.trackingNumber || "",
         statusHistory: rawOrder.statusHistory || [],
+        validTransitions: rawOrder.validTransitions || [],
         items: (rawOrder.items || []).map((item: any) => ({
           name: item.product?.name || item.name || `Product #${item.productId}`,
           quantity: item.quantity,
@@ -161,6 +162,20 @@ export default function OrderDetailPage() {
   }
 
   if (!order) return null
+
+  const STATUS_OPTIONS: Record<string, string> = {
+    PENDING: "Pending",
+    CONFIRMED: "Confirmed",
+    PROCESSING: "Processing",
+    QUALITY_CHECK: "Quality Check",
+    SHIPPED: "Shipped",
+    OUT_FOR_DELIVERY: "Out for Delivery",
+    DELIVERED: "Delivered",
+    CANCELLED: "Cancelled",
+  }
+  const validTransitions = (order.validTransitions || []).filter(
+    (status: string) => STATUS_OPTIONS[status]
+  )
 
   const activeNotes = internalNotes !== null ? internalNotes : order.internalNotes
   const activeTracking = trackingNumber !== null ? trackingNumber : order.trackingNumber
@@ -444,21 +459,24 @@ export default function OrderDetailPage() {
               <div className="space-y-3">
                 <Select value={newStatus} onValueChange={setNewStatus}>
                   <SelectTrigger className="bg-white border-[#E5DDCF] text-[#1A1A1A]">
-                    <SelectValue placeholder="Select new status" />
+                    <SelectValue placeholder={validTransitions.length ? "Select new status" : "No further updates"} />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-[#E5DDCF] text-[#1A1A1A]">
-                    <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                    <SelectItem value="PROCESSING">Processing</SelectItem>
-                    <SelectItem value="QUALITY_CHECK">Quality Check</SelectItem>
-                    <SelectItem value="SHIPPED">Shipped</SelectItem>
-                    <SelectItem value="OUT_FOR_DELIVERY">Out for Delivery</SelectItem>
-                    <SelectItem value="DELIVERED">Delivered</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    {validTransitions.map((status: string) => (
+                      <SelectItem key={status} value={status}>
+                        {STATUS_OPTIONS[status]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {validTransitions.length === 0 && (
+                  <p className="text-xs text-gray-500">
+                    This order is in a final state and cannot be updated further.
+                  </p>
+                )}
                 <Button
                   onClick={() => statusMutation.mutate({ status: newStatus })}
-                  disabled={!newStatus || statusMutation.isPending}
+                  disabled={!newStatus || statusMutation.isPending || validTransitions.length === 0}
                   className="w-full bg-[#7A6543] hover:bg-[#7A6543]/90 text-white font-medium"
                 >
                   {statusMutation.isPending ? "Updating..." : "Update Status"}

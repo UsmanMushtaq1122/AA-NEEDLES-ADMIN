@@ -93,6 +93,13 @@ export default function EditProductPage() {
       toast("success", "Product deleted");
       router.push("/admin/products");
     },
+    onError: (error) => {
+      toast(
+        "error",
+        error?.message ||
+          "Product could not be deleted. Archive it instead if it has order history."
+      );
+    },
   });
 
   const duplicateMutation = useMutation({

@@ -59,6 +59,9 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         isBestSeller: false,
         categoryIds: [],
         tags: [],
+        descriptionSections: { color: "", sections: [], note: "" },
+        fabric: "",
+        careInstructions: [],
         seoTitle: "",
         seoDescription: "",
       };
@@ -87,6 +90,15 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         ? [initialData.categoryId]
         : (initialData.categories || []).map((c) => c.id),
       tags: Array.isArray(initialData.tags) ? initialData.tags : [],
+      descriptionSections: initialData.descriptionSections || {
+        color: "",
+        sections: [],
+        note: "",
+      },
+      fabric: initialData.fabric || "",
+      careInstructions: Array.isArray(initialData.careInstructions)
+        ? initialData.careInstructions
+        : [],
       seoTitle: initialData.seoTitle || "",
       seoDescription: initialData.seoDescription || "",
     };
@@ -113,6 +125,8 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
   const isFeaturedValue = watch("isFeatured");
   const isNewArrivalValue = watch("isNewArrival");
   const isBestSellerValue = watch("isBestSeller");
+  const descriptionSectionsValue = watch("descriptionSections");
+  const careInstructionsValue = watch("careInstructions");
 
   const [tagInput, setTagInput] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -185,6 +199,104 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       }
     },
     [categoryIdsValue, setValue]
+  );
+
+  const addSection = useCallback(() => {
+    setValue("descriptionSections", {
+      ...descriptionSectionsValue,
+      sections: [...descriptionSectionsValue.sections, { title: "", items: [""] }],
+    });
+  }, [descriptionSectionsValue, setValue]);
+
+  const removeSection = useCallback(
+    (sectionIndex: number) => {
+      setValue("descriptionSections", {
+        ...descriptionSectionsValue,
+        sections: descriptionSectionsValue.sections.filter(
+          (_, i) => i !== sectionIndex
+        ),
+      });
+    },
+    [descriptionSectionsValue, setValue]
+  );
+
+  const updateSectionTitle = useCallback(
+    (sectionIndex: number, title: string) => {
+      setValue("descriptionSections", {
+        ...descriptionSectionsValue,
+        sections: descriptionSectionsValue.sections.map((s, i) =>
+          i === sectionIndex ? { ...s, title } : s
+        ),
+      });
+    },
+    [descriptionSectionsValue, setValue]
+  );
+
+  const addSectionItem = useCallback(
+    (sectionIndex: number) => {
+      setValue("descriptionSections", {
+        ...descriptionSectionsValue,
+        sections: descriptionSectionsValue.sections.map((s, i) =>
+          i === sectionIndex ? { ...s, items: [...s.items, ""] } : s
+        ),
+      });
+    },
+    [descriptionSectionsValue, setValue]
+  );
+
+  const removeSectionItem = useCallback(
+    (sectionIndex: number, itemIndex: number) => {
+      setValue("descriptionSections", {
+        ...descriptionSectionsValue,
+        sections: descriptionSectionsValue.sections.map((s, i) =>
+          i === sectionIndex
+            ? { ...s, items: s.items.filter((_, j) => j !== itemIndex) }
+            : s
+        ),
+      });
+    },
+    [descriptionSectionsValue, setValue]
+  );
+
+  const updateSectionItem = useCallback(
+    (sectionIndex: number, itemIndex: number, text: string) => {
+      setValue("descriptionSections", {
+        ...descriptionSectionsValue,
+        sections: descriptionSectionsValue.sections.map((s, i) =>
+          i === sectionIndex
+            ? {
+                ...s,
+                items: s.items.map((item, j) => (j === itemIndex ? text : item)),
+              }
+            : s
+        ),
+      });
+    },
+    [descriptionSectionsValue, setValue]
+  );
+
+  const addCareInstruction = useCallback(() => {
+    setValue("careInstructions", [...careInstructionsValue, ""]);
+  }, [careInstructionsValue, setValue]);
+
+  const removeCareInstruction = useCallback(
+    (index: number) => {
+      setValue(
+        "careInstructions",
+        careInstructionsValue.filter((_, i) => i !== index)
+      );
+    },
+    [careInstructionsValue, setValue]
+  );
+
+  const updateCareInstruction = useCallback(
+    (index: number, text: string) => {
+      setValue(
+        "careInstructions",
+        careInstructionsValue.map((c, i) => (i === index ? text : c))
+      );
+    },
+    [careInstructionsValue, setValue]
   );
 
   const moveImage = useCallback(
@@ -276,6 +388,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         const message = "Product image is required.";
         setImageError(message);
         toast("error", message);
+        setSubmitting(false);
         return;
       }
 
@@ -297,6 +410,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         if (duplicates.sku) setError("sku", { type: "duplicate", message: duplicates.sku });
         if (duplicates.slug) setError("slug", { type: "duplicate", message: duplicates.slug });
         toast("error", "This product already exists.");
+        setSubmitting(false);
         return;
       }
 
@@ -371,17 +485,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                   {...register("shortDescription")}
                   error={errors.shortDescription?.message}
                 />
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-[#1A1A1A]">
-                    Full Description
-                  </label>
-                  <Textarea
-                    placeholder="Detailed product description..."
-                    rows={6}
-                    {...register("description")}
-                    error={errors.description?.message}
-                  />
-                </div>
+                {/* Full Description removed per request */}
                 <div className="grid grid-cols-3 gap-4">
                   <Input
                     label="Price (PKR)"
@@ -434,6 +538,169 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                     {...register("lowStockThreshold", { valueAsNumber: true })}
                     error={errors.lowStockThreshold?.message}
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Description</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Color"
+                    placeholder="e.g. Navy & Coffee"
+                    {...register("descriptionSections.color")}
+                  />
+                  <Input
+                    label="Note"
+                    placeholder="e.g. Dry Clean Only"
+                    {...register("descriptionSections.note")}
+                  />
+                </div>
+
+                {descriptionSectionsValue.sections.length > 0 && (
+                  <div className="space-y-4">
+                    {descriptionSectionsValue.sections.map(
+                      (section, sectionIndex) => (
+                        <div
+                          key={sectionIndex}
+                          className="space-y-3 rounded-xl border border-gray-200 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                              Section {sectionIndex + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSection(sectionIndex)}
+                              className="rounded-full p-1.5 text-red-500 hover:bg-red-50"
+                              title="Remove section"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <Input
+                            placeholder="Section title (e.g. Shirt)"
+                            value={section.title}
+                            onChange={(e) =>
+                              updateSectionTitle(sectionIndex, e.target.value)
+                            }
+                          />
+                          {section.items.length > 0 && (
+                            <div className="space-y-2">
+                              {section.items.map((item, itemIndex) => (
+                                <div
+                                  key={itemIndex}
+                                  className="flex items-center gap-2"
+                                >
+                                  <span className="text-sm text-gray-300">•</span>
+                                  <Input
+                                    placeholder={`Item ${itemIndex + 1}`}
+                                    value={item}
+                                    onChange={(e) =>
+                                      updateSectionItem(
+                                        sectionIndex,
+                                        itemIndex,
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeSectionItem(sectionIndex, itemIndex)
+                                    }
+                                    className="shrink-0 rounded-full p-1.5 text-red-500 hover:bg-red-50"
+                                    title="Remove item"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addSectionItem(sectionIndex)}
+                          >
+                            <Plus className="h-4 w-4" /> Add Item
+                          </Button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+
+                <Button type="button" variant="outline" onClick={addSection}>
+                  <Plus className="h-4 w-4" /> Add Section
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.12 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Care</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <Input
+                  label="Fabric"
+                  placeholder="e.g. Cotton & Silk Blend"
+                  {...register("fabric")}
+                />
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-[#1A1A1A]">
+                    Care Instructions
+                  </label>
+                  {careInstructionsValue.length > 0 && (
+                    <div className="space-y-2">
+                      {careInstructionsValue.map((instruction, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-300">•</span>
+                          <Input
+                            placeholder="e.g. Don't wash — Dry clean only"
+                            value={instruction}
+                            onChange={(e) =>
+                              updateCareInstruction(index, e.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeCareInstruction(index)}
+                            className="shrink-0 rounded-full p-1.5 text-red-500 hover:bg-red-50"
+                            title="Remove care instruction"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-1"
+                    onClick={addCareInstruction}
+                  >
+                    <Plus className="h-4 w-4" /> Add Care Instruction
+                  </Button>
                 </div>
               </CardContent>
             </Card>

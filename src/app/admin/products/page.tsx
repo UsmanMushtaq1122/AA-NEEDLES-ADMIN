@@ -30,10 +30,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/ui/data-table";
+import { useToast } from "@/components/ui/toast";
 import { Product, Category } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { api } from "@/lib/api";
-
 function fetchProducts(): Promise<{ data: Product[]; total: number }> {
   return api.get("/products?limit=50").then((res: any) => {
     const products = (res.data?.products || []).map((p: any) => ({
@@ -54,15 +54,25 @@ function deleteProduct(id: string): Promise<void> {
   return api.delete(`/products/${id}`).then(() => {});
 }
 
+function deleteProducts(
+  ids: string[]
+): Promise<{ deleted: number; failed: unknown[] }> {
+  return api
+    .post<{ data?: { deleted: number; failed: unknown[] } }>(`/products/bulk-delete`, { ids })
+    .then((res) => res.data || { deleted: 0, failed: [] });
+}
+
 export default function ProductsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedRows, setSelectedRows] = useState<Product[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products"],
@@ -80,6 +90,32 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
+    },
+    onError: (error) => {
+      toast(
+        "error",
+        error?.message ||
+          "Product could not be deleted. Archive it instead if it has order history."
+      );
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteProducts(ids),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setBulkDeleteDialogOpen(false);
+      setSelectedRows([]);
+      const failedCount = result?.failed?.length || 0;
+      toast(
+        "success",
+        failedCount > 0
+          ? `${result.deleted} deleted, ${failedCount} skipped (has order history).`
+          : `${result.deleted} products deleted.`
+      );
+    },
+    onError: (error) => {
+      toast("error", error?.message || "Some products could not be deleted.");
     },
   });
 
@@ -337,12 +373,7 @@ export default function ProductsPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => {
-                          selectedRows.forEach((p) =>
-                            deleteMutation.mutate(p.id)
-                          );
-                          setSelectedRows([]);
-                        }}
+                        onClick={() => setBulkDeleteDialogOpen(true)}
                       >
                         <Trash className="h-3.5 w-3.5" />
                         Delete Selected
@@ -419,6 +450,34 @@ export default function ProductsPage() {
               }}
             >
               Delete Product
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <DialogContent>
+          <DialogTitle>Delete Selected Products</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete {selectedRows.length} selected
+            product{selectedRows.length !== 1 ? "s" : ""}? Products with order
+            history will be skipped automatically.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setBulkDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={bulkDeleteMutation.isPending}
+              onClick={() =>
+                bulkDeleteMutation.mutate(selectedRows.map((p) => p.id))
+              }
+            >
+              Delete Products
             </Button>
           </div>
         </DialogContent>

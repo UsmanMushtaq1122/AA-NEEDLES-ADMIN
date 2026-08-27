@@ -30,6 +30,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -67,6 +68,7 @@ const contentSection: NavSection = {
     { label: "Locations", href: "/admin/content/locations", icon: MapPin },
     { label: "Careers", href: "/admin/content/careers", icon: Briefcase },
     { label: "Job Applications", href: "/admin/content/careers/applications", icon: FileText },
+    { label: "Navigation Menu", href: "/admin/content/navigation", icon: Menu },
   ],
 };
 

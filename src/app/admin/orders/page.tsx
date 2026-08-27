@@ -72,9 +72,10 @@ export default function OrdersPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
   const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ["orders"],
+    queryKey: ["orders", activeTab],
     queryFn: async () => {
-      const res = await api.get<{ success: boolean; data: any }>("/orders?limit=100")
+      const statusQuery = activeTab ? `&status=${activeTab.toUpperCase()}` : ""
+      const res = await api.get<{ success: boolean; data: any }>(`/orders?limit=100${statusQuery}`)
       const backendOrders = Array.isArray(res.data) ? res.data : (res.data?.orders || [])
       return backendOrders.map((o: any, index: number) => ({
         id: o.id ?? `temp-${index}`,
