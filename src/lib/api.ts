@@ -56,7 +56,9 @@ class ApiClient {
       }
       if (typeof window !== "undefined") {
         this.clearAuth();
-        window.location.href = "/admin/login";
+        if (window.location.pathname !== "/admin/login") {
+          window.location.replace("/admin/login");
+        }
       }
       throw new ApiError("Unauthorized", 401);
     }
@@ -197,7 +199,9 @@ class ApiClient {
       }
       if (typeof window !== "undefined") {
         this.clearAuth();
-        window.location.href = "/admin/login";
+        if (window.location.pathname !== "/admin/login") {
+          window.location.replace("/admin/login");
+        }
       }
       throw new ApiError("Unauthorized", 401);
     }
