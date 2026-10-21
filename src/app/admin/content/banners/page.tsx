@@ -184,15 +184,21 @@ export default function BannersPage() {
   };
 
   const handleSave = async () => {
-    setActionLoading("save");
+    const announcementText = form.text.trim();
+
+    if (dialogType === "announcement" && !announcementText) {
+      toast("error", "Please enter announcement text");
+      return;
+    }
 
     if (dialogType !== "announcement" && !selectedFile && !form.imageUrl) {
       toast("error", "Please upload an image");
       return;
     }
 
+    setActionLoading("save");
     const formData = new FormData();
-    formData.append("title", form.title);
+    formData.append("title", dialogType === "announcement" ? announcementText : form.title.trim());
     formData.append("subtitle", form.subtitle);
     formData.append("link", form.link);
     formData.append("isActive", String(form.active));
@@ -203,7 +209,7 @@ export default function BannersPage() {
       formData.append("buttonText", form.buttonText);
     }
     if (dialogType === "announcement") {
-      formData.append("text", form.text);
+      formData.append("text", announcementText);
     }
     if (selectedFile) {
       formData.append("image", selectedFile);
@@ -222,10 +228,10 @@ export default function BannersPage() {
     try {
       if (editingBanner) {
         await api.upload(`/banners/${editingBanner.id}`, formData, "PUT");
-        toast("success", "Banner updated successfully");
+        toast("success", dialogType === "announcement" ? "Announcement updated successfully" : "Banner updated successfully");
       } else {
         await api.upload("/banners", formData, "POST");
-        toast("success", "Banner added successfully");
+        toast("success", dialogType === "announcement" ? "Announcement added successfully" : "Banner added successfully");
       }
       fetchBanners();
       setDialogOpen(false);
@@ -599,6 +605,7 @@ export default function BannersPage() {
                     value={form.text}
                     onChange={(e) => setForm({ ...form, text: e.target.value })}
                     placeholder="Enter announcement text..."
+                    maxLength={200}
                     className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
                   />
                 </div>
@@ -808,7 +815,13 @@ export default function BannersPage() {
                 className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
                 disabled={actionLoading === "save"}
               >
-                {actionLoading === "save" ? "Saving..." : editingBanner ? "Save Changes" : "Add Banner"}
+                {actionLoading === "save"
+                  ? "Saving..."
+                  : editingBanner
+                    ? "Save Changes"
+                    : dialogType === "announcement"
+                      ? "Add Announcement"
+                      : "Add Banner"}
               </Button>
             </div>
           </div>

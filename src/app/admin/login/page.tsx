@@ -117,7 +117,7 @@ function LoginForm({ redirect = "/admin" }: { redirect?: string }) {
             className="text-4xl font-bold tracking-tight mb-1"
             style={{ fontFamily: "'Playfair Display', serif", color: "#1A1A1A" }}
           >
-            AA Neddles
+            AA Needles
           </h1>
           <div className="w-12 h-0.5 mx-auto my-3" style={{ backgroundColor: "#C9A96E" }} />
           <p

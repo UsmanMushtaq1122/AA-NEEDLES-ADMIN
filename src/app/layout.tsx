@@ -19,9 +19,9 @@ const inter = { variable: "--font-inter" };
 const cormorant = { variable: "--font-cormorant" };
 
 export const metadata: Metadata = {
-  title: "AA Neddles Admin",
+  title: "AA Needles Admin",
   description:
-    "Admin panel for AA Neddles — a luxury Pakistani fashion brand offering premium ready-to-wear, haute couture, and bespoke tailoring.",
+    "Admin panel for AA Needles — a luxury Pakistani fashion brand offering premium ready-to-wear, haute couture, and bespoke tailoring.",
 };
 
 export default function RootLayout({

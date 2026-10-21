@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import type { z } from "zod";
 import {
   Save,
   Instagram,
@@ -20,30 +21,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { settingsSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 
-type SettingsForm = {
-  brandName: string;
-  brandDescription: string;
-  contactEmail: string;
-  contactPhone: string;
-  address: string;
-  returnWindowDays: number;
-  exchangeWindowDays: number;
-  socialLinks: {
-    instagram?: string;
-    facebook?: string;
-    tiktok?: string;
-    youtube?: string;
-  };
-};
+type SettingsForm = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("general");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -82,14 +67,14 @@ export default function SettingsPage() {
     reset,
     formState: { errors },
   } = useForm<SettingsForm>({
-    resolver: zodResolver(settingsSchema) as any,
+    resolver: zodResolver(settingsSchema),
     defaultValues: {},
   });
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await api.get<any>("/settings");
+        const res = await api.get<{ data: SettingsForm }>("/settings");
         reset(res.data);
       } catch (error) {
         console.error("Failed to fetch settings", error);
@@ -103,8 +88,8 @@ export default function SettingsPage() {
     onSuccess: () => {
       toast("success", "Settings saved successfully");
     },
-    onError: () => {
-      toast("error", "Failed to save settings");
+    onError: (error: Error) => {
+      toast("error", error.message || "Failed to save settings");
     },
   });
 

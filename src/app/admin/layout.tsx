@@ -45,7 +45,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C9A96E] border-t-transparent" />
           <span className="font-['Playfair_Display'] text-lg font-semibold text-[#1A1A1A]">
-            AA Neddles
+            AA Needles
           </span>
         </div>
       </div>

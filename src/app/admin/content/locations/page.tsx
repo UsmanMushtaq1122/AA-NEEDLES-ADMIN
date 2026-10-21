@@ -281,7 +281,7 @@ export default function LocationsPage() {
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="AA Neddles — Location Name"
+                placeholder="AA Needles — Location Name"
                 className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
               />
             </div>
