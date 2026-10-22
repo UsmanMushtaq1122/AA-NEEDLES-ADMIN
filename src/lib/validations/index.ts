@@ -78,6 +78,7 @@ export const productSchema = z.object({
   tags: z.array(z.string()).default([]),
   descriptionSections: descriptionSectionsSchema,
   fabric: z.string().default(""),
+  sizes: z.array(z.string().trim().min(1, "Size cannot be empty.")).default([]),
   careInstructions: z.array(z.string()).default([]),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),

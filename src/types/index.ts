@@ -54,6 +54,7 @@ export interface Product {
   variants?: ProductVariant[];
   descriptionSections?: DescriptionSections;
   fabric?: string;
+  sizes?: string[];
   careInstructions?: string[];
   seoTitle?: string;
   seoDescription?: string;

@@ -12,6 +12,8 @@ import {
   ArrowDown,
   Trash2,
   Plus,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,14 @@ import type { Product } from "@/types";
 type ProductFormData = z.infer<typeof productSchema>;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const STANDARD_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+const CARE_SUGGESTIONS = [
+  "Dry clean recommended",
+  "Hand wash separately",
+  "Do not bleach",
+  "Iron at low temperature",
+  "Store in a cool, dry place",
+];
 
 interface ProductFormProps {
   initialData?: Product;
@@ -61,6 +71,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         tags: [],
         descriptionSections: { color: "", sections: [], note: "" },
         fabric: "",
+        sizes: [],
         careInstructions: [],
         seoTitle: "",
         seoDescription: "",
@@ -96,6 +107,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
         note: "",
       },
       fabric: initialData.fabric || "",
+      sizes: Array.isArray(initialData.sizes) ? initialData.sizes : [],
       careInstructions: Array.isArray(initialData.careInstructions)
         ? initialData.careInstructions
         : [],
@@ -126,9 +138,11 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
   const isNewArrivalValue = watch("isNewArrival");
   const isBestSellerValue = watch("isBestSeller");
   const descriptionSectionsValue = watch("descriptionSections");
+  const sizesValue = watch("sizes");
   const careInstructionsValue = watch("careInstructions");
 
   const [tagInput, setTagInput] = useState("");
+  const [customSizeInput, setCustomSizeInput] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -275,29 +289,24 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
     [descriptionSectionsValue, setValue]
   );
 
-  const addCareInstruction = useCallback(() => {
-    setValue("careInstructions", [...careInstructionsValue, ""]);
-  }, [careInstructionsValue, setValue]);
-
-  const removeCareInstruction = useCallback(
-    (index: number) => {
-      setValue(
-        "careInstructions",
-        careInstructionsValue.filter((_, i) => i !== index)
-      );
-    },
-    [careInstructionsValue, setValue]
-  );
-
-  const updateCareInstruction = useCallback(
-    (index: number, text: string) => {
-      setValue(
-        "careInstructions",
-        careInstructionsValue.map((c, i) => (i === index ? text : c))
-      );
-    },
-    [careInstructionsValue, setValue]
-  );
+  const addCustomSize = useCallback(() => {
+    const enteredSize = customSizeInput.trim();
+    const size =
+      STANDARD_SIZES.find(
+        (standardSize) =>
+          standardSize.toLowerCase() === enteredSize.toLowerCase()
+      ) || enteredSize;
+    if (
+      size &&
+      !sizesValue.some((existingSize) => existingSize.toLowerCase() === size.toLowerCase())
+    ) {
+      setValue("sizes", [...sizesValue, size], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    setCustomSizeInput("");
+  }, [customSizeInput, setValue, sizesValue]);
 
   const moveImage = useCallback(
     (index: number, direction: "up" | "down") => {
@@ -485,7 +494,6 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                   {...register("shortDescription")}
                   error={errors.shortDescription?.message}
                 />
-                {/* Full Description removed per request */}
                 <div className="grid grid-cols-3 gap-4">
                   <Input
                     label="Price (PKR)"
@@ -538,6 +546,80 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                     {...register("lowStockThreshold", { valueAsNumber: true })}
                     error={errors.lowStockThreshold?.message}
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.08 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Sizes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-[#1A1A1A]">
+                    Select available sizes
+                  </legend>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ...STANDARD_SIZES,
+                      ...sizesValue.filter(
+                        (size) =>
+                          !STANDARD_SIZES.some(
+                            (standardSize) =>
+                              standardSize.toLowerCase() === size.toLowerCase()
+                          )
+                      ),
+                    ].map((size) => (
+                      <label
+                        key={size}
+                        className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 text-sm text-[#1A1A1A]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={sizesValue.includes(size)}
+                          onChange={(event) =>
+                            setValue(
+                              "sizes",
+                              event.target.checked
+                                ? [...sizesValue, size]
+                                : sizesValue.filter((selected) => selected !== size),
+                              { shouldDirty: true, shouldValidate: true }
+                            )
+                          }
+                          className="h-4 w-4 accent-[#C9A96E]"
+                        />
+                        {size}
+                      </label>
+                    ))}
+                  </div>
+                  {errors.sizes?.message && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.sizes.message}
+                    </p>
+                  )}
+                </fieldset>
+                <div className="flex items-end gap-2">
+                  <Input
+                    label="Custom size"
+                    placeholder="e.g. 3XL"
+                    value={customSizeInput}
+                    onChange={(event) => setCustomSizeInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addCustomSize();
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="outline" onClick={addCustomSize}>
+                    <Plus className="h-4 w-4" /> Add Size
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -654,8 +736,19 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
             transition={{ duration: 0.3, delay: 0.12 }}
           >
             <Card>
-              <CardHeader>
-                <CardTitle>Product Care</CardTitle>
+              <CardHeader className="pb-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9A96E]/10 text-[#9A763A]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle>Product Care</CardTitle>
+                    <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
+                      Give customers clear guidance to help them care for this
+                      piece and preserve its quality.
+                    </p>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
                 <Input
@@ -664,43 +757,79 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                   {...register("fabric")}
                 />
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-[#1A1A1A]">
-                    Care Instructions
-                  </label>
-                  {careInstructionsValue.length > 0 && (
-                    <div className="space-y-2">
-                      {careInstructionsValue.map((instruction, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-300">•</span>
-                          <Input
-                            placeholder="e.g. Don't wash — Dry clean only"
-                            value={instruction}
-                            onChange={(e) =>
-                              updateCareInstruction(index, e.target.value)
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeCareInstruction(index)}
-                            className="shrink-0 rounded-full p-1.5 text-red-500 hover:bg-red-50"
-                            title="Remove care instruction"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                <div className="rounded-xl border border-[#E9E2D8] bg-[#FBF9F6] p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#1A1A1A]">
+                        Care instructions
+                      </h3>
+                      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                        Add one instruction per line. These appear in the
+                        Product Care section.
+                      </p>
                     </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-1"
-                    onClick={addCareInstruction}
-                  >
-                    <Plus className="h-4 w-4" /> Add Care Instruction
-                  </Button>
+                    <span className="rounded-full border border-[#E9E2D8] bg-white px-2.5 py-1 text-[11px] font-medium text-gray-500">
+                      {careInstructionsValue.length}{" "}
+                      {careInstructionsValue.length === 1
+                        ? "instruction"
+                        : "instructions"}
+                    </span>
+                  </div>
+
+                  <Textarea
+                    aria-label="Care instructions, one per line"
+                    placeholder={
+                      "e.g. Dry clean recommended\nStore in a cool, dry place"
+                    }
+                    rows={4}
+                    className="mt-4 resize-y bg-white"
+                    value={careInstructionsValue.join("\n")}
+                    onChange={(event) =>
+                      setValue(
+                        "careInstructions",
+                        event.target.value
+                          .split(/\r?\n/)
+                          .map((instruction) => instruction.trim())
+                          .filter(Boolean),
+                        { shouldDirty: true, shouldValidate: true }
+                      )
+                    }
+                    error={errors.careInstructions?.message}
+                  />
+
+                  <div className="mt-4">
+                    <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      <Sparkles className="h-3.5 w-3.5 text-[#A8844A]" />
+                      Quick add
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {CARE_SUGGESTIONS.map((instruction) => {
+                        const isAdded = careInstructionsValue.includes(instruction);
+                        return (
+                          <button
+                            key={instruction}
+                            type="button"
+                            disabled={isAdded}
+                            onClick={() =>
+                              setValue(
+                                "careInstructions",
+                                [...careInstructionsValue, instruction],
+                                { shouldDirty: true, shouldValidate: true }
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                              isAdded
+                                ? "cursor-default border-[#C9A96E]/40 bg-[#C9A96E]/10 text-[#80602E]"
+                                : "border-gray-200 bg-white text-gray-600 hover:border-[#C9A96E] hover:text-[#80602E]"
+                            }`}
+                          >
+                            {isAdded ? "Added · " : "+ "}
+                            {instruction}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
