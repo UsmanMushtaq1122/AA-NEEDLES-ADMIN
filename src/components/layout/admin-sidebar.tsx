@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -141,15 +142,15 @@ export default function AdminSidebar() {
       )}
     >
       <div className="flex h-16 items-center justify-between border-b border-white/5 px-4">
-        <Link href="/admin" className="flex items-center gap-2">
-          <span className="font-['Playfair_Display'] text-2xl font-bold text-[#C9A96E]">
-            AA
-          </span>
-          {!collapsed && (
-            <span className="font-['Playfair_Display'] text-sm font-medium text-[#F5F0EB]/70">
-              Admin
-            </span>
-          )}
+        <Link href="/admin" className="flex items-center" aria-label="AA Needles Admin home">
+          <NextImage
+            src={collapsed ? "/icon.png" : "/aa-needles-logo.png"}
+            alt="AA Needles"
+            width={collapsed ? 36 : 88}
+            height={collapsed ? 36 : 56}
+            className="shrink-0 object-contain"
+            priority
+          />
         </Link>
         <button
           onClick={() => dispatch(toggleSidebar())}
