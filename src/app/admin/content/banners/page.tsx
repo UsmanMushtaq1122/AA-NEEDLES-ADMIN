@@ -38,6 +38,47 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+async function optimizeBannerImage(
+  file: File,
+  maxWidth: number,
+  maxHeight: number
+): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, maxWidth / bitmap.width, maxHeight / bitmap.height);
+    const needsResize = scale < 1;
+    if (!needsResize && file.size <= 1024 * 1024) return file;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not prepare the banner image.");
+
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) =>
+          result
+            ? resolve(result)
+            : reject(new Error("Could not optimize the banner image.")),
+        "image/webp",
+        0.82
+      );
+    });
+
+    if (blob.type !== "image/webp") {
+      throw new Error("This browser could not optimize the image. Try a JPEG or WebP image.");
+    }
+
+    if (!needsResize && blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, "") || "banner";
+    return new File([blob], `${name}.webp`, { type: blob.type });
+  } finally {
+    bitmap.close();
+  }
+}
+
 interface HeroBanner {
   id: string;
   title: string;
@@ -226,10 +267,20 @@ export default function BannersPage() {
     }
 
     try {
+      const [desktopUpload, mobileUpload] = await Promise.all([
+        selectedFile ? optimizeBannerImage(selectedFile, 1920, 1200) : null,
+        mobileSelectedFile
+          ? optimizeBannerImage(mobileSelectedFile, 1200, 1600)
+          : null,
+      ]);
       if (editingBanner) {
+        if (desktopUpload) formData.set("image", desktopUpload);
+        if (mobileUpload) formData.set("mobileImage", mobileUpload);
         await api.upload(`/banners/${editingBanner.id}`, formData, "PUT");
         toast("success", dialogType === "announcement" ? "Announcement updated successfully" : "Banner updated successfully");
       } else {
+        if (desktopUpload) formData.set("image", desktopUpload);
+        if (mobileUpload) formData.set("mobileImage", mobileUpload);
         await api.upload("/banners", formData, "POST");
         toast("success", dialogType === "announcement" ? "Announcement added successfully" : "Banner added successfully");
       }
@@ -816,7 +867,9 @@ export default function BannersPage() {
                 disabled={actionLoading === "save"}
               >
                 {actionLoading === "save"
-                  ? "Saving..."
+                  ? dialogType === "announcement"
+                    ? "Saving..."
+                    : "Optimizing & saving..."
                   : editingBanner
                     ? "Save Changes"
                     : dialogType === "announcement"
