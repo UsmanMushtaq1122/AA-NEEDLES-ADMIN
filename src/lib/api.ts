@@ -1,4 +1,28 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const configuredApiBase = process.env.NEXT_PUBLIC_API_URL?.trim();
+const defaultApiBase = process.env.NODE_ENV === "production"
+  ? "https://api.aaneedles.com/api/v1"
+  : "http://localhost:5000/api/v1";
+const API_BASE_URL = (configuredApiBase || defaultApiBase).replace(/\/+$/, "");
+
+let parsedApiBase: URL;
+try {
+  parsedApiBase = new URL(API_BASE_URL);
+} catch {
+  throw new Error("NEXT_PUBLIC_API_URL must be an absolute URL ending in /api/v1.");
+}
+
+if (
+  !["http:", "https:"].includes(parsedApiBase.protocol)
+  || !parsedApiBase.pathname.endsWith("/api/v1")
+  || parsedApiBase.username
+  || parsedApiBase.password
+) {
+  throw new Error("NEXT_PUBLIC_API_URL must be an absolute HTTP(S) URL ending in /api/v1.");
+}
+
+if (process.env.NODE_ENV === "production" && parsedApiBase.protocol !== "https:") {
+  throw new Error("NEXT_PUBLIC_API_URL must use HTTPS in production.");
+}
 
 interface RequestOptions extends RequestInit {
   token?: string;
