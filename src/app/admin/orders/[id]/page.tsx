@@ -52,7 +52,7 @@ export default function OrderDetailPage() {
   const [internalNotes, setInternalNotes] = useState<string | null>(null)
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null)
 
-  const { data: rawOrder, isLoading } = useQuery({
+  const { data: rawOrder, isLoading, isError } = useQuery({
     queryKey: ["order", orderId],
     queryFn: async () => {
       const res = await api.get<any>(`/orders/${orderId}`)
@@ -60,6 +60,12 @@ export default function OrderDetailPage() {
     },
     enabled: !!orderId,
   })
+
+  const getImageUrl = (images: unknown) => {
+    if (!Array.isArray(images) || images.length === 0) return ""
+    const firstImage = images[0]
+    return typeof firstImage === "string" ? firstImage : (firstImage as { url?: string })?.url || ""
+  }
 
   const order = rawOrder
     ? {
@@ -73,8 +79,18 @@ export default function OrderDetailPage() {
         orderStatus: rawOrder.status?.toLowerCase() || "pending",
         createdAt: rawOrder.createdAt,
         shippingAddress:
-          typeof rawOrder.shippingAddress === "object"
-            ? `${rawOrder.shippingAddress.addressLine1 || ""}, ${rawOrder.shippingAddress.city || ""}`
+          typeof rawOrder.shippingAddress === "object" && rawOrder.shippingAddress !== null
+            ? [
+                rawOrder.shippingAddress.addressLine1,
+                rawOrder.shippingAddress.addressLine2,
+                rawOrder.shippingAddress.area,
+                rawOrder.shippingAddress.city,
+                rawOrder.shippingAddress.province,
+                rawOrder.shippingAddress.postalCode,
+                rawOrder.shippingAddress.country,
+              ]
+                .filter(Boolean)
+                .join(", ")
             : rawOrder.shippingAddress || "",
         subtotal: rawOrder.subtotal || 0,
         shipping: rawOrder.shippingCost || 0,
@@ -83,6 +99,16 @@ export default function OrderDetailPage() {
         total: rawOrder.total || 0,
         internalNotes: rawOrder.internalNotes || "",
         trackingNumber: rawOrder.trackingNumber || "",
+        amountPaid: (rawOrder.payments || [])
+          .filter((payment: any) => ["COMPLETED", "PAID", "SUCCESS"].includes(String(payment.status).toUpperCase()))
+          .reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0),
+        balanceDue: Math.max(
+          0,
+          Number(rawOrder.total || 0) -
+            (rawOrder.payments || [])
+              .filter((payment: any) => ["COMPLETED", "PAID", "SUCCESS"].includes(String(payment.status).toUpperCase()))
+              .reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0)
+        ),
         statusHistory: rawOrder.statusHistory || [],
         validTransitions: rawOrder.validTransitions || [],
         items: (rawOrder.items || []).map((item: any) => ({
@@ -90,6 +116,8 @@ export default function OrderDetailPage() {
           quantity: item.quantity,
           unitPrice: item.price || item.unitPrice || 0,
           total: item.total || item.quantity * (item.price || 0) || 0,
+          selectedSize: item.selectedSize || "",
+          imageUrl: getImageUrl(item.product?.images),
         })),
       }
     : null
@@ -161,7 +189,26 @@ export default function OrderDetailPage() {
     )
   }
 
-  if (!order) return null
+  if (isError || !order) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center p-6">
+        <div className="max-w-md rounded-xl border border-[#E5DDCF] bg-white p-8 text-center shadow-sm">
+          <h1 className="text-lg font-semibold text-[#1A1A1A]">Order unavailable</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            We could not load this order. Please refresh the page or return to Orders.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/orders")}
+            className="mt-5 border-[#E5DDCF] text-[#1A1A1A]"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Orders
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const STATUS_OPTIONS: Record<string, string> = {
     PENDING: "Pending",
@@ -181,7 +228,8 @@ export default function OrderDetailPage() {
   const activeTracking = trackingNumber !== null ? trackingNumber : order.trackingNumber
 
   return (
-    <div className="min-h-screen p-4 md:p-6 bg-[#F5F0EB]">
+    <>
+    <div className="order-screen min-h-screen p-4 md:p-6 bg-[#F5F0EB]">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -548,5 +596,100 @@ export default function OrderDetailPage() {
         </div>
       </div>
     </div>
+    <div className="print-only invoice-print" aria-label="Printable invoice">
+      <div className="invoice-sheet">
+        <header className="invoice-header">
+          <div className="invoice-brand">
+            <img src="/aa-needles-logo.png" alt="AA Needles" className="invoice-logo" />
+            <div>
+              <p className="invoice-kicker">Premium Pakistani Fashion</p>
+              <p className="invoice-muted">Thank you for choosing AA Needles</p>
+            </div>
+          </div>
+          <div className="invoice-title">
+            <p className="invoice-kicker">Tax Invoice</p>
+            <h1>#{order.orderNumber}</h1>
+            <p className="invoice-muted">{formatDate(order.createdAt)}</p>
+          </div>
+        </header>
+
+        <div className="invoice-meta-grid">
+          <section>
+            <p className="invoice-label">Billed to</p>
+            <p className="invoice-strong">{order.customerName}</p>
+            {order.customerEmail && <p>{order.customerEmail}</p>}
+            {order.customerPhone && <p>{order.customerPhone}</p>}
+          </section>
+          <section>
+            <p className="invoice-label">Shipping address</p>
+            <p className="invoice-address">{order.shippingAddress || "No shipping address provided."}</p>
+          </section>
+          <section className="invoice-payment">
+            <p className="invoice-label">Payment</p>
+            <p><span>Method</span><strong>{order.paymentMethod}</strong></p>
+            <p><span>Status</span><strong className="invoice-capitalize">{order.paymentStatus}</strong></p>
+            {order.amountPaid > 0 && <p><span>Paid</span><strong>{formatCurrency(order.amountPaid)}</strong></p>}
+            {order.balanceDue > 0 && <p><span>Balance due</span><strong>{formatCurrency(order.balanceDue)}</strong></p>}
+          </section>
+        </div>
+
+        <section className="invoice-items">
+          <table>
+            <thead>
+              <tr>
+                <th className="invoice-product">Item</th>
+                <th>Qty</th>
+                <th>Unit price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item: any, index: number) => (
+                <tr key={index}>
+                  <td className="invoice-product">
+                    <div className="invoice-item">
+                      {item.imageUrl && <img src={item.imageUrl} alt="" className="invoice-item-image" />}
+                      <div>
+                        <span>{item.name}</span>
+                        {item.selectedSize && <small>Size: {item.selectedSize}</small>}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>{formatCurrency(item.unitPrice)}</td>
+                  <td>{formatCurrency(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <div className="invoice-summary">
+          <div className="invoice-summary-rows">
+            <p><span>Subtotal</span><strong>{formatCurrency(order.subtotal)}</strong></p>
+            <p><span>Shipping</span><strong>{formatCurrency(order.shipping)}</strong></p>
+            {order.discount > 0 && (
+              <p><span>Discount</span><strong className="invoice-discount">-{formatCurrency(order.discount)}</strong></p>
+            )}
+            {order.codFee > 0 && (
+              <p><span>COD fee</span><strong>{formatCurrency(order.codFee)}</strong></p>
+            )}
+            <p className="invoice-total"><span>Total due</span><strong>{formatCurrency(order.total)}</strong></p>
+          </div>
+        </div>
+
+        <footer className="invoice-footer">
+          <div>
+            <p className="invoice-strong">AA Needles</p>
+            <p>Elegant craftsmanship, made for you.</p>
+          </div>
+          <div className="invoice-footer-right">
+            <p>Order status: <strong className="invoice-capitalize">{getOrderStatusLabel(order.orderStatus)}</strong></p>
+            {activeTracking && <p>Tracking: <strong>{activeTracking}</strong></p>}
+          </div>
+        </footer>
+      </div>
+    </div>
+    </>
   )
 }
