@@ -60,6 +60,7 @@ export default function EditorialPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [titleError, setTitleError] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,14 +95,22 @@ export default function EditorialPage() {
   };
 
   const handleSave = async () => {
+    const title = form.title.trim();
+    if (!title) {
+      setTitleError("Title is required.");
+      toast("error", "Please enter an editorial title.");
+      return;
+    }
+
+    setTitleError("");
     setActionLoading("save");
     try {
       const payload = new FormData();
-      payload.append("title", form.title);
-      payload.append("subtitle", form.subtitle);
-      payload.append("description", form.description);
-      payload.append("link", form.link);
-      payload.append("category", form.category);
+      payload.append("title", title);
+      payload.append("subtitle", form.subtitle.trim());
+      payload.append("description", form.description.trim());
+      payload.append("link", form.link.trim());
+      payload.append("category", form.category.trim());
       payload.append("isActive", String(form.active));
       payload.append("sortOrder", String(editingItem ? editingItem.order : editorials.length));
       if (selectedFile) {
@@ -314,8 +323,16 @@ export default function EditorialPage() {
               <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Title</label>
               <Input
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setForm({ ...form, title });
+                  if (title.trim()) setTitleError("");
+                }}
                 placeholder="Article title..."
+                required
+                aria-required="true"
+                aria-invalid={!!titleError}
+                error={titleError}
                 className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
               />
             </div>
