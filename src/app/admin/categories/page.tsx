@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { categorySchema } from "@/lib/validations"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
+import { compressImage } from "@/lib/compress-image"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -225,15 +226,28 @@ export default function CategoriesPage() {
     )
   }
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast("error", "Image file size should be less than 10MB")
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast("error", "Please select a valid image file.")
+      return
+    }
+
+    try {
+      const compressedFile = await compressImage(file)
+
+      if (compressedFile.size > 5 * 1024 * 1024) {
+        toast("error", "Please choose a smaller image.")
         return
       }
-      setSelectedFile(file)
-      setImagePreview(URL.createObjectURL(file))
+
+      setSelectedFile(compressedFile)
+      setImagePreview(URL.createObjectURL(compressedFile))
+    } catch (error) {
+      console.error("Category image processing failed:", error)
+      toast("error", "Unable to process this image. Please try another file.")
     }
   }
 
