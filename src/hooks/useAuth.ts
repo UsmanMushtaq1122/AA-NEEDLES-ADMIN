@@ -62,19 +62,38 @@ export function useAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    const initAuth = () => {
+    const initAuth = async () => {
       try {
         const tokenCookie = getCookie("accessToken");
         const storedUser = localStorage.getItem("user");
 
         if (tokenCookie && !isTokenExpired(tokenCookie)) {
-          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-          const role = normalizeRole(parsedUser?.role);
+          const response = await api.get<{
+            success: boolean;
+            data: {
+              id: string;
+              email: string;
+              name: string;
+              role: string;
+              createdAt: string;
+              emailVerified?: boolean;
+            };
+          }>("/auth/me", tokenCookie);
+          const verifiedUser = response.data;
+          const role = normalizeRole(verifiedUser?.role);
 
-          if (parsedUser && ADMIN_ROLES.has(role)) {
+          if (response.success && verifiedUser && ADMIN_ROLES.has(role)) {
+            const parsedUser = storedUser ? JSON.parse(storedUser) : {};
+            const user = {
+              ...parsedUser,
+              ...verifiedUser,
+              role,
+              isActive: parsedUser?.isActive ?? true,
+            };
+            localStorage.setItem("user", JSON.stringify(user));
             dispatch(
               setCredentials({
-                user: { ...parsedUser, role },
+                user,
                 accessToken: tokenCookie,
                 refreshToken: getCookie("refreshToken") || "",
               })
@@ -83,7 +102,7 @@ export function useAuth() {
           }
         }
       } catch {
-        // malformed data — clear and proceed
+        // Invalid, expired, revoked, or non-admin sessions are cleared below.
       }
       clearStoredAuth();
       dispatch(setLoading(false));

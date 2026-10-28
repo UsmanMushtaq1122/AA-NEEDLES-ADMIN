@@ -13,6 +13,7 @@ import {
   Calendar,
   ArrowUpDown,
   RefreshCw,
+  Trash2,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn, formatCurrency, formatDate, getOrderStatusColor, getOrderStatusLabel, getPaymentStatusColor } from "@/lib/utils"
@@ -121,6 +122,26 @@ export default function OrdersPage() {
       toast("error", error.message || "Failed to update status.")
     },
   })
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/orders/${id}`),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] })
+      setSelectedOrders((prev) => prev.filter((orderId) => orderId !== id))
+      toast("success", "Order deleted successfully.")
+    },
+    onError: (error: any) => {
+      toast("error", error.message || "Only pending or cancelled orders can be deleted.")
+    },
+  })
+
+  const deleteOrder = (order: { id: string; orderNumber: string }) => {
+    if (!window.confirm(`Delete order ${order.orderNumber}? This action cannot be undone.`)) {
+      return
+    }
+
+    deleteOrderMutation.mutate(order.id)
+  }
 
   const filteredOrders = orders.filter((order: any) => {
     if (activeTab && order.orderStatus !== activeTab) return false
@@ -513,6 +534,7 @@ export default function OrdersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
+                            portal
                             className="bg-white border-[#E5DDCF] shadow-lg text-[#1A1A1A]"
                           >
                             <DropdownMenuItem
@@ -529,6 +551,15 @@ export default function OrdersPage() {
                               className="cursor-pointer hover:bg-[#F5F0EB]"
                             >
                               Update Status
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deleteOrder(order)}
+                              disabled={deleteOrderMutation.isPending}
+                              destructive
+                              className="cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Order
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

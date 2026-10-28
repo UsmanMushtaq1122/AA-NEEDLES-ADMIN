@@ -15,9 +15,10 @@ import {
   ToggleLeft,
   ToggleRight,
   ArrowUpDown,
-  X,
+  Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,6 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -97,6 +100,8 @@ export default function CustomersPage() {
   const [sortField, setSortField] = useState<"name" | "totalSpent" | "totalOrders" | "lastOrder">("lastOrder");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [editNotes, setEditNotes] = useState("");
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const filtered = customers.filter((c) => {
     const matchesSearch =
@@ -148,6 +153,27 @@ export default function CustomersPage() {
     } catch {}
   };
 
+  const deleteCustomer = async (customer: Customer) => {
+    if (!window.confirm(`Delete customer "${customer.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingCustomerId(customer.id);
+    try {
+      await api.delete(`/customers/${customer.id}`);
+      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+      if (selectedCustomer?.id === customer.id) {
+        setSelectedCustomer(null);
+        setDetailOpen(false);
+      }
+      toast("success", "Customer deleted successfully");
+    } catch (error) {
+      toast("error", error instanceof Error ? error.message : "Failed to delete customer");
+    } finally {
+      setDeletingCustomerId(null);
+    }
+  };
+
   const openDetail = (customer: Customer) => {
     setSelectedCustomer(customer);
     setEditNotes(customer.notes);
@@ -171,13 +197,13 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
             <div>
               <h1 className="text-3xl font-light tracking-wide text-[#1A1A1A]">
                 Customers
@@ -188,7 +214,7 @@ export default function CustomersPage() {
             </div>
             <Button
               variant="outline"
-              className="border-[#C9A96E] text-[#7A6543] hover:bg-[#C9A96E] hover:text-white font-light tracking-wide"
+              className="w-full sm:w-auto border-[#C9A96E] text-[#7A6543] hover:bg-[#C9A96E] hover:text-white font-light tracking-wide"
             >
               <Download className="w-4 h-4 mr-2" />
               Export CSV
@@ -235,8 +261,8 @@ export default function CustomersPage() {
           </div>
 
           <Card className="bg-white border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col gap-3 mb-6 lg:flex-row">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1A1A1A]/30" />
                   <Input
@@ -246,13 +272,13 @@ export default function CustomersPage() {
                     className="pl-10 border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2 lg:flex">
                   {(["all", "active", "inactive"] as const).map((status) => (
                     <Button
                       key={status}
                       variant={statusFilter === status ? "default" : "outline"}
                       className={cn(
-                        "font-light tracking-wide text-xs uppercase",
+                        "w-full font-light tracking-wide text-xs uppercase",
                         statusFilter === status
                           ? "bg-[#1A1A1A] text-white"
                           : "border-stone-200 text-[#1A1A1A]/60 hover:border-[#C9A96E] hover:text-[#7A6543]"
@@ -265,8 +291,8 @@ export default function CustomersPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow className="border-stone-100">
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
@@ -366,7 +392,11 @@ export default function CustomersPage() {
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-white border-stone-100">
+                            <DropdownMenuContent
+                              align="end"
+                              portal
+                              className="bg-white border-stone-100"
+                            >
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -407,6 +437,19 @@ export default function CustomersPage() {
                                   Manually Verify OTP/Email
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void deleteCustomer(customer);
+                                }}
+                                disabled={deletingCustomerId === customer.id}
+                                destructive
+                                className="font-light text-sm cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {deletingCustomerId === customer.id ? "Deleting..." : "Delete Customer"}
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -428,23 +471,29 @@ export default function CustomersPage() {
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white border-0">
+        <DialogContent className="max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg bg-white border-0 p-4 sm:max-h-[90vh] sm:rounded-xl sm:p-6">
           {selectedCustomer && (
             <>
-              <DialogHeader>
+              <DialogHeader className="pr-10">
                 <DialogTitle className="text-xl font-light tracking-wide text-[#1A1A1A]">
                   Customer Details
                 </DialogTitle>
               </DialogHeader>
+              <DialogClose
+                onClick={() => setDetailOpen(false)}
+                aria-label="Close customer details"
+                className="right-3 top-3 h-9 w-9 flex items-center justify-center rounded-full bg-[#F5F0EB] text-[#7A6543] hover:bg-[#C9A96E] hover:text-white sm:right-4 sm:top-4"
+              />
 
-              <div className="space-y-8">
-                <div className="flex items-start gap-5">
-                  <div className="w-16 h-16 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-lg font-light tracking-wider shrink-0">
+              <div className="space-y-6 sm:space-y-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+                  <div className="flex items-start gap-3 sm:contents">
+                    <div className="w-14 h-14 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-lg font-light tracking-wider shrink-0 sm:w-16 sm:h-16">
                     {selectedCustomer.avatar}
-                  </div>
-                  <div className="flex-1">
+                    </div>
+                    <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-lg font-medium text-[#1A1A1A]">
+                      <h3 className="text-lg font-medium text-[#1A1A1A] truncate">
                         {selectedCustomer.name}
                       </h3>
                       <Badge
@@ -456,10 +505,10 @@ export default function CustomersPage() {
                         {selectedCustomer.tier}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-[#1A1A1A]/50 font-light">
-                      <span className="flex items-center gap-1">
+                    <div className="flex flex-col gap-1 text-sm text-[#1A1A1A]/50 font-light sm:flex-row sm:items-center sm:gap-4">
+                      <span className="flex items-center gap-1 min-w-0">
                         <Mail className="w-3.5 h-3.5" />
-                        {selectedCustomer.email}
+                        <span className="truncate">{selectedCustomer.email}</span>
                       </span>
                       <span className="flex items-center gap-1">
                         <Phone className="w-3.5 h-3.5" />
@@ -469,8 +518,9 @@ export default function CustomersPage() {
                     <p className="text-xs text-[#1A1A1A]/30 mt-1 font-light">
                       Member since {formatDate(selectedCustomer.joinedDate)}
                     </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-start">
                     <span className="text-xs text-[#1A1A1A]/40 font-light">Active</span>
                     <Switch
                       checked={selectedCustomer.status === "active"}
@@ -481,7 +531,7 @@ export default function CustomersPage() {
 
                 <Separator className="bg-stone-100" />
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                   <div className="bg-[#F5F0EB] rounded-lg p-4">
                     <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                       Total Orders
@@ -547,7 +597,7 @@ export default function CustomersPage() {
                     {selectedCustomer.orders.map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between p-3 bg-[#F5F0EB]/50 rounded-lg"
+                        className="flex flex-col items-start gap-3 p-3 bg-[#F5F0EB]/50 rounded-lg sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-4">
                           <ShoppingBag className="w-4 h-4 text-[#1A1A1A]/30" />
@@ -558,7 +608,7 @@ export default function CustomersPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <p className="text-sm font-medium text-[#7A6543]">
                             {formatCurrency(order.total)}
                           </p>

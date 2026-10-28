@@ -405,7 +405,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     { resource: "products", actions: ["create", "read", "update", "delete"] },
     { resource: "categories", actions: ["create", "read", "update", "delete"] },
     { resource: "orders", actions: ["read", "update"] },
-    { resource: "customers", actions: ["read", "update"] },
+    { resource: "customers", actions: ["read", "update", "delete"] },
     { resource: "coupons", actions: ["create", "read", "update", "delete"] },
     { resource: "payments", actions: ["read", "update"] },
     { resource: "reviews", actions: ["read", "update", "delete"] },

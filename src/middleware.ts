@@ -64,6 +64,12 @@ function isTokenExpired(token: string): boolean {
 }
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === "production"
+    ? "https://api.aaneedles.com/api/v1"
+    : "http://localhost:5000/api/v1")
+).replace(/\/+$/, "");
 
 async function hasValidAdminAuth(request: NextRequest): Promise<boolean> {
   const cookieToken = request.cookies.get("accessToken")?.value;
@@ -76,11 +82,37 @@ async function hasValidAdminAuth(request: NextRequest): Promise<boolean> {
   if (!payload || !ADMIN_ROLES.includes(payload.role as string)) return false;
 
   const jwtSecret = process.env.JWT_SECRET;
-  return jwtSecret ? verifyJwtSignature(token, jwtSecret) : true;
+  if (jwtSecret) {
+    const locallyVerified = await verifyJwtSignature(token, jwtSecret);
+    if (locallyVerified) return true;
+  }
+
+  if (!API_BASE_URL) return false;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return false;
+
+    const result = await response.json() as {
+      success?: boolean;
+      data?: { role?: string };
+    };
+    return Boolean(result.success && result.data && ADMIN_ROLES.includes(result.data.role || ""));
+  } catch {
+    return false;
+  }
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname === "/") {
+    const destination = (await hasValidAdminAuth(request)) ? "/admin" : "/admin/login";
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
 
   if (!pathname.startsWith("/admin")) return NextResponse.next();
 
@@ -99,5 +131,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/", "/admin/:path*"],
 };
