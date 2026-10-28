@@ -124,14 +124,14 @@ export default function EditorialPage() {
       }
       if (editingItem) {
         await api.upload(
-          `/editorial/${editingItem.id}?title=${encodeURIComponent(title)}`,
+          `/editorial/${editingItem.id}`,
           payload,
           "PUT"
         );
         toast("success", "Editorial updated successfully");
       } else {
         await api.upload(
-          `/editorial?title=${encodeURIComponent(title)}`,
+          "/editorial",
           payload,
           "POST"
         );
