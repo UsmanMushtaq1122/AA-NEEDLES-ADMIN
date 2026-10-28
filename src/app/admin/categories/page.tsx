@@ -238,7 +238,7 @@ export default function CategoriesPage() {
     try {
       const compressedFile = await compressImage(file)
 
-      if (compressedFile.size > 5 * 1024 * 1024) {
+      if (compressedFile.size > 3 * 1024 * 1024) {
         toast("error", "Please choose a smaller image.")
         return
       }
@@ -760,7 +760,7 @@ export default function CategoriesPage() {
                       Click to upload or drag and drop
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      PNG, JPG, WEBP up to 10MB
+                      Images are automatically optimized before upload
                     </p>
                   </div>
                 )}

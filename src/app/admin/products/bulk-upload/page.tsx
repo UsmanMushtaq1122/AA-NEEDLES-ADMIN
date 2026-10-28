@@ -18,24 +18,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
+import { compressImage } from "@/lib/compress-image";
 
 interface UploadedImage {
   url: string;
   publicId: string;
 }
 
-function bulkUploadImages(
-  files: File[]
-): Promise<{ success: boolean; data: UploadedImage[] }> {
-  const formData = new FormData();
-  files.forEach((file) => {
+async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data: UploadedImage[] }> {
+  const uploadedImages: UploadedImage[] = [];
+
+  for (const file of files) {
+    const formData = new FormData();
     formData.append("images", file);
-  });
-  return api.upload("/products/bulk-upload", formData);
+    const response = await api.upload<{ success: boolean; data: UploadedImage[] }>(
+      "/products/bulk-upload",
+      formData
+    );
+    uploadedImages.push(...(response.data || []));
+  }
+
+  return { success: true, data: uploadedImages };
 }
 
 const MAX_IMAGES = 5;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 export default function BulkUploadPage() {
   const router = useRouter();
@@ -46,26 +53,38 @@ export default function BulkUploadPage() {
   const [dragActive, setDragActive] = useState(false);
 
   const addFiles = useCallback(
-    (newFiles: FileList | File[]) => {
+    async (newFiles: FileList | File[]) => {
       const remaining = MAX_IMAGES - files.length;
       const imageFiles = Array.from(newFiles).filter((f) =>
         f.type.startsWith("image/")
       );
-      const oversized = imageFiles.filter((f) => f.size > MAX_FILE_SIZE);
-      if (oversized.length > 0) {
-        toast(
-          "error",
-          `${oversized.length} file(s) skipped — maximum file size is 10MB.`
-        );
-      }
-      const valid = imageFiles
-        .filter((f) => f.size <= MAX_FILE_SIZE)
-        .slice(0, remaining);
-      if (valid.length === 0) return;
+      if (imageFiles.length === 0 || remaining <= 0) return;
 
-      const newPreviews = valid.map((f) => URL.createObjectURL(f));
+      const selectedFiles: File[] = [];
+      for (const file of imageFiles.slice(0, remaining)) {
+        try {
+          const compressedFile = await compressImage(file, {
+            maxWidth: 1400,
+            maxHeight: 1400,
+            quality: 0.78,
+          });
+
+          if (compressedFile.size <= MAX_FILE_SIZE) {
+            selectedFiles.push(compressedFile);
+          } else {
+            toast("error", `${file.name} is too large after optimization and was skipped.`)
+          }
+        } catch (error) {
+          console.error("Product image processing failed:", error)
+          toast("error", `${file.name} could not be processed and was skipped.`)
+        }
+      }
+
+      if (selectedFiles.length === 0) return;
+
+      const newPreviews = selectedFiles.map((file) => URL.createObjectURL(file));
       setPreviews((prev) => [...prev, ...newPreviews]);
-      setFiles((prev) => [...prev, ...valid]);
+      setFiles((prev) => [...prev, ...selectedFiles]);
     },
     [files.length, toast]
   );
@@ -103,8 +122,9 @@ export default function BulkUploadPage() {
       setResults(res.data || []);
       toast("success", `Uploaded ${(res.data || []).length} images successfully`);
     },
-    onError: () => {
-      toast("error", "Failed to upload images. Please try again.");
+    onError: (error: Error) => {
+      console.error("Product image upload failed:", error)
+      toast("error", error.message || "Failed to upload images. Please try again.");
     },
   });
 
