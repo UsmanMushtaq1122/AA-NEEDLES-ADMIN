@@ -28,6 +28,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/compress-image";
 
 interface EditorialItem {
   id: string;
@@ -95,21 +96,28 @@ export default function EditorialPage() {
   const handleSave = async () => {
     setActionLoading("save");
     try {
-      const payload = {
-        title: form.title,
-        subtitle: form.subtitle,
-        description: form.description,
-        imageUrl: form.imageUrl,
-        link: form.link,
-        category: form.category,
-        isActive: form.active,
-        sortOrder: editingItem ? editingItem.order : editorials.length,
-      };
+      const payload = new FormData();
+      payload.append("title", form.title);
+      payload.append("subtitle", form.subtitle);
+      payload.append("description", form.description);
+      payload.append("link", form.link);
+      payload.append("category", form.category);
+      payload.append("isActive", String(form.active));
+      payload.append("sortOrder", String(editingItem ? editingItem.order : editorials.length));
+      if (selectedFile) {
+        payload.append("image", await compressImage(selectedFile, {
+          maxWidth: 1400,
+          maxHeight: 1400,
+          quality: 0.78,
+        }));
+      } else if (form.imageUrl && !form.imageUrl.startsWith("blob:")) {
+        payload.append("imageUrl", form.imageUrl);
+      }
       if (editingItem) {
-        await api.put(`/editorial/${editingItem.id}`, payload);
+        await api.upload(`/editorial/${editingItem.id}`, payload, "PUT");
         toast("success", "Editorial updated successfully");
       } else {
-        await api.post("/editorial", payload);
+        await api.upload("/editorial", payload, "POST");
         toast("success", "Editorial added successfully");
       }
       const res = await api.get<any>("/editorial");
