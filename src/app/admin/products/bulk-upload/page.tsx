@@ -42,7 +42,7 @@ async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data
 }
 
 const MAX_IMAGES = 5;
-const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const MAX_FILE_SIZE = 1024 * 1024;
 
 export default function BulkUploadPage() {
   const router = useRouter();
@@ -64,9 +64,9 @@ export default function BulkUploadPage() {
       for (const file of imageFiles.slice(0, remaining)) {
         try {
           const compressedFile = await compressImage(file, {
-            maxWidth: 1400,
-            maxHeight: 1400,
-            quality: 0.78,
+            maxWidth: 1000,
+            maxHeight: 1000,
+            quality: 0.7,
           });
 
           if (compressedFile.size <= MAX_FILE_SIZE) {

@@ -231,6 +231,12 @@ class ApiClient {
     }
 
     if (!response.ok) {
+      if (response.status === 413) {
+        throw new ApiError(
+          "The image is too large for the production upload gateway. Choose a smaller image.",
+          response.status
+        );
+      }
       const error = await response.json().catch(() => ({ message: "Upload failed" }));
       throw new ApiError(error.message || "Upload failed", response.status);
     }
