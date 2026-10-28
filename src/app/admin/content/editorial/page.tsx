@@ -123,10 +123,18 @@ export default function EditorialPage() {
         payload.append("imageUrl", form.imageUrl);
       }
       if (editingItem) {
-        await api.upload(`/editorial/${editingItem.id}`, payload, "PUT");
+        await api.upload(
+          `/editorial/${editingItem.id}?title=${encodeURIComponent(title)}`,
+          payload,
+          "PUT"
+        );
         toast("success", "Editorial updated successfully");
       } else {
-        await api.upload("/editorial", payload, "POST");
+        await api.upload(
+          `/editorial?title=${encodeURIComponent(title)}`,
+          payload,
+          "POST"
+        );
         toast("success", "Editorial added successfully");
       }
       const res = await api.get<any>("/editorial");
