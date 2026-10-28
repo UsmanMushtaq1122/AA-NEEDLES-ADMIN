@@ -126,14 +126,18 @@ export default function EditorialPage() {
         await api.upload(
           `/editorial/${editingItem.id}?title=${encodeURIComponent(title)}`,
           payload,
-          "PUT"
+          "PUT",
+          undefined,
+          { "X-Editorial-Title": title }
         );
         toast("success", "Editorial updated successfully");
       } else {
         await api.upload(
           `/editorial?title=${encodeURIComponent(title)}`,
           payload,
-          "POST"
+          "POST",
+          undefined,
+          { "X-Editorial-Title": title }
         );
         toast("success", "Editorial added successfully");
       }

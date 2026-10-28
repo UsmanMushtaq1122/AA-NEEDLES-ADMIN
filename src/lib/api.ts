@@ -189,8 +189,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "DELETE", token });
   }
 
-  async upload<T>(endpoint: string, formData: FormData, method: string = "POST", token?: string): Promise<T> {
-    const headers: Record<string, string> = {};
+  async upload<T>(
+    endpoint: string,
+    formData: FormData,
+    method: string = "POST",
+    token?: string,
+    extraHeaders?: Record<string, string>
+  ): Promise<T> {
+    const headers: Record<string, string> = { ...(extraHeaders || {}) };
     const storedToken = this.getAccessToken();
     const authToken = token || storedToken;
     if (authToken) {
