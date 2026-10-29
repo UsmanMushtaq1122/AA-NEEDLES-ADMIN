@@ -21,6 +21,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const MAX_TESTIMONIAL_VIDEO_SIZE = 10 * 1024 * 1024;
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -469,8 +471,8 @@ export default function TestimonialsPage() {
                   accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    if (file && file.size > 100 * 1024 * 1024) {
-                      toast("error", "Video must be 100 MB or smaller");
+                    if (file && file.size > MAX_TESTIMONIAL_VIDEO_SIZE) {
+                      toast("error", "Video must be 10 MB or smaller");
                       e.target.value = "";
                       setVideoFile(null);
                       return;
