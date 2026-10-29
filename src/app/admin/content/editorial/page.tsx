@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -124,14 +124,14 @@ export default function EditorialPage() {
       }
       if (editingItem) {
         await api.upload(
-          `/editorial/${editingItem.id}`,
+          `/editorial/${editingItem.id}?title=${encodeURIComponent(title)}`,
           payload,
           "PUT"
         );
         toast("success", "Editorial updated successfully");
       } else {
         await api.upload(
-          "/editorial",
+          `/editorial?title=${encodeURIComponent(title)}`,
           payload,
           "POST"
         );
