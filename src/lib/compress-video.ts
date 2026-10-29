@@ -73,7 +73,7 @@ export async function compressVideo(file: File): Promise<File> {
 
     const blob = await recording;
     return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webm`, {
-      type: mimeType,
+      type: "video/webm",
       lastModified: Date.now(),
     });
   } finally {
