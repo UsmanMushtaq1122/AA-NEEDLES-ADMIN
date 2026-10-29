@@ -22,16 +22,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const MAX_TESTIMONIAL_VIDEO_SIZE = 10 * 1024 * 1024;
-
-type VideoUploadSignature = {
-  signature: string;
-  apiKey: string;
-  cloudName: string;
-  folder: string;
-  publicId: string;
-  timestamp: number;
-};
+const MAX_TESTIMONIAL_VIDEO_SIZE = 1024 * 1024;
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -136,32 +127,7 @@ export default function TestimonialsPage() {
   const handleSave = async () => {
     setActionLoading("save");
     try {
-      let uploadedVideoUrl = form.videoUrl;
-      if (videoFile) {
-        const signatureResponse = await api.post<{ data: VideoUploadSignature }>("/testimonials/video-signature");
-        const signature = signatureResponse.data;
-        const cloudinaryPayload = new FormData();
-        cloudinaryPayload.append("file", videoFile);
-        cloudinaryPayload.append("api_key", signature.apiKey);
-        cloudinaryPayload.append("timestamp", String(signature.timestamp));
-        cloudinaryPayload.append("folder", signature.folder);
-        cloudinaryPayload.append("public_id", signature.publicId);
-        cloudinaryPayload.append("signature", signature.signature);
-
-        const cloudinaryResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${signature.cloudName}/video/upload`,
-          { method: "POST", body: cloudinaryPayload },
-        );
-        if (!cloudinaryResponse.ok) {
-          throw new Error("Video upload failed. Please try again with a smaller video.");
-        }
-        const uploaded = await cloudinaryResponse.json() as { secure_url?: string };
-        if (!uploaded.secure_url) {
-          throw new Error("Video upload completed without a usable URL.");
-        }
-        uploadedVideoUrl = uploaded.secure_url;
-      }
-
+      const uploadedVideoUrl = form.videoUrl;
       const testimonialPayload = {
         customerName: form.customerName,
         content: form.content,
@@ -186,7 +152,12 @@ export default function TestimonialsPage() {
       }
 
       if (editingItem) {
-        if (videoFile || form.type === "video") {
+        if (videoFile) {
+          const videoPayload = new FormData();
+          Object.entries(testimonialPayload).forEach(([key, value]) => videoPayload.append(key, String(value)));
+          videoPayload.append("video", videoFile);
+          await api.upload(`/testimonials/${editingItem.id}/video`, videoPayload, "PUT");
+        } else if (form.type === "video") {
           await api.put(`/testimonials/${editingItem.id}`, testimonialPayload);
         } else {
           await api.upload(`/testimonials/${editingItem.id}`, payload, "PUT");
@@ -194,7 +165,10 @@ export default function TestimonialsPage() {
         toast("success", "Testimonial updated successfully");
       } else {
         if (videoFile) {
-          await api.post("/testimonials", testimonialPayload);
+          const videoPayload = new FormData();
+          Object.entries(testimonialPayload).forEach(([key, value]) => videoPayload.append(key, String(value)));
+          videoPayload.append("video", videoFile);
+          await api.upload("/testimonials/video", videoPayload);
         } else {
           await api.upload("/testimonials", payload);
         }
@@ -524,12 +498,6 @@ export default function TestimonialsPage() {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) {
-                      setVideoFile(null);
-                      return;
-                    }
-                    if (file.size > MAX_TESTIMONIAL_VIDEO_SIZE) {
-                      toast("error", "Video must be 10 MB or smaller before compression");
-                      e.target.value = "";
                       setVideoFile(null);
                       return;
                     }

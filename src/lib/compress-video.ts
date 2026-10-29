@@ -1,5 +1,5 @@
 const MAX_VIDEO_WIDTH = 1280;
-const VIDEO_BITRATE = 2_000_000;
+const VIDEO_BITRATE = 500_000;
 
 const getSupportedMimeType = () => {
   const candidates = [
