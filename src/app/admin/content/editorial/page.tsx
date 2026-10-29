@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -64,7 +64,7 @@ export default function EditorialPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    api.get<any>("/editorial")
+    api.get<any>("/editorial?all=true")
       .then((res) => setEditorials(res.data || []))
       .catch(() => setEditorials([]))
       .finally(() => setLoading(false));
@@ -141,7 +141,7 @@ export default function EditorialPage() {
         );
         toast("success", "Editorial added successfully");
       }
-      const res = await api.get<any>("/editorial");
+      const res = await api.get<any>("/editorial?all=true");
       setEditorials(res.data || []);
       setDialogOpen(false);
     } catch (error: any) {
@@ -157,7 +157,7 @@ export default function EditorialPage() {
     try {
       await api.put(`/editorial/${id}`, { isActive: !item.active });
       toast("success", "Status updated successfully");
-      const res = await api.get<any>("/editorial");
+      const res = await api.get<any>("/editorial?all=true");
       setEditorials(res.data || []);
     } catch (error: any) {
       toast("error", error?.message || "Failed to toggle status");
@@ -178,7 +178,7 @@ export default function EditorialPage() {
         api.put(`/editorial/${swapItem.id}`, { sortOrder: currentItem.order }),
       ]);
       toast("success", "Order updated successfully");
-      const res = await api.get<any>("/editorial");
+      const res = await api.get<any>("/editorial?all=true");
       setEditorials(res.data || []);
     } catch (error: any) {
       toast("error", error?.message || "Failed to update order");
