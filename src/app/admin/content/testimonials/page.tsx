@@ -23,6 +23,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const MAX_TESTIMONIAL_VIDEO_SIZE = 10 * 1024 * 1024;
+
+type VideoUploadSignature = {
+  signature: string;
+  apiKey: string;
+  cloudName: string;
+  folder: string;
+  publicId: string;
+  timestamp: number;
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -41,6 +50,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { compressVideo } from "@/lib/compress-video";
 
 interface Testimonial {
   id: string;
@@ -71,6 +81,7 @@ export default function TestimonialsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoProcessing, setVideoProcessing] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const { toast } = useToast();
 
@@ -99,6 +110,7 @@ export default function TestimonialsPage() {
     setForm({ customerName: "", content: "", rating: 5, type: "gallery", image: "", videoUrl: "", isActive: true });
     setPhotoFile(null);
     setVideoFile(null);
+    setVideoProcessing(false);
     setFileInputKey((key) => key + 1);
     setDialogOpen(true);
   };
@@ -116,6 +128,7 @@ export default function TestimonialsPage() {
     });
     setPhotoFile(null);
     setVideoFile(null);
+    setVideoProcessing(false);
     setFileInputKey((key) => key + 1);
     setDialogOpen(true);
   };
@@ -123,6 +136,42 @@ export default function TestimonialsPage() {
   const handleSave = async () => {
     setActionLoading("save");
     try {
+      let uploadedVideoUrl = form.videoUrl;
+      if (videoFile) {
+        const signatureResponse = await api.post<{ data: VideoUploadSignature }>("/testimonials/video-signature");
+        const signature = signatureResponse.data;
+        const cloudinaryPayload = new FormData();
+        cloudinaryPayload.append("file", videoFile);
+        cloudinaryPayload.append("api_key", signature.apiKey);
+        cloudinaryPayload.append("timestamp", String(signature.timestamp));
+        cloudinaryPayload.append("folder", signature.folder);
+        cloudinaryPayload.append("public_id", signature.publicId);
+        cloudinaryPayload.append("signature", signature.signature);
+
+        const cloudinaryResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${signature.cloudName}/video/upload`,
+          { method: "POST", body: cloudinaryPayload },
+        );
+        if (!cloudinaryResponse.ok) {
+          throw new Error("Video upload failed. Please try again with a smaller video.");
+        }
+        const uploaded = await cloudinaryResponse.json() as { secure_url?: string };
+        if (!uploaded.secure_url) {
+          throw new Error("Video upload completed without a usable URL.");
+        }
+        uploadedVideoUrl = uploaded.secure_url;
+      }
+
+      const testimonialPayload = {
+        customerName: form.customerName,
+        content: form.content,
+        rating: form.rating,
+        type: form.type,
+        videoUrl: form.type === "video" ? uploadedVideoUrl : "",
+        isActive: form.isActive,
+        ...(editingItem ? { sortOrder: editingItem.sortOrder } : {}),
+      };
+
       const payload = new FormData();
       payload.append("customerName", form.customerName);
       payload.append("content", form.content);
@@ -137,16 +186,18 @@ export default function TestimonialsPage() {
       }
 
       if (editingItem) {
-        const endpoint = videoFile
-          ? `/testimonials/${editingItem.id}/video`
-          : `/testimonials/${editingItem.id}`;
-        if (videoFile) payload.append("video", videoFile);
-        await api.upload(endpoint, payload, "PUT");
+        if (videoFile || form.type === "video") {
+          await api.put(`/testimonials/${editingItem.id}`, testimonialPayload);
+        } else {
+          await api.upload(`/testimonials/${editingItem.id}`, payload, "PUT");
+        }
         toast("success", "Testimonial updated successfully");
       } else {
-        const endpoint = videoFile ? "/testimonials/video" : "/testimonials";
-        if (videoFile) payload.append("video", videoFile);
-        await api.upload(endpoint, payload);
+        if (videoFile) {
+          await api.post("/testimonials", testimonialPayload);
+        } else {
+          await api.upload("/testimonials", payload);
+        }
         toast("success", "Testimonial added successfully");
       }
       const res = await api.get<{ data: Testimonial[] }>("/testimonials/admin");
@@ -441,6 +492,7 @@ export default function TestimonialsPage() {
                     setForm({ ...form, type: val as Testimonial["type"] });
                     setPhotoFile(null);
                     setVideoFile(null);
+                    setVideoProcessing(false);
                     setFileInputKey((key) => key + 1);
                   }}
                 >
@@ -470,14 +522,31 @@ export default function TestimonialsPage() {
                   type="file"
                   accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    if (file && file.size > MAX_TESTIMONIAL_VIDEO_SIZE) {
-                      toast("error", "Video must be 10 MB or smaller");
+                    const file = e.target.files?.[0];
+                    if (!file) {
+                      setVideoFile(null);
+                      return;
+                    }
+                    if (file.size > MAX_TESTIMONIAL_VIDEO_SIZE) {
+                      toast("error", "Video must be 10 MB or smaller before compression");
                       e.target.value = "";
                       setVideoFile(null);
                       return;
                     }
-                    setVideoFile(file);
+                    setVideoFile(null);
+                    setVideoProcessing(true);
+                    void compressVideo(file)
+                      .then((compressedVideo) => {
+                        if (compressedVideo.size > MAX_TESTIMONIAL_VIDEO_SIZE) {
+                          throw new Error("Compressed video is still larger than 10 MB. Choose a shorter video.");
+                        }
+                        setVideoFile(compressedVideo);
+                      })
+                      .catch((error: unknown) => {
+                        toast("error", error instanceof Error ? error.message : "Video compression failed");
+                        e.target.value = "";
+                      })
+                      .finally(() => setVideoProcessing(false));
                   }}
                   className="h-auto min-h-11 border-stone-200 bg-[#F8F6F3] py-2 font-light file:mr-3 file:rounded-md file:bg-[#EDE6DC] file:px-3 file:py-1 file:text-xs"
                 />
@@ -536,9 +605,9 @@ export default function TestimonialsPage() {
               <Button
                 onClick={handleSave}
                 className="w-full bg-[#1A1A1A] font-light tracking-wide text-white hover:bg-[#1A1A1A]/80 sm:w-auto"
-                disabled={actionLoading === "save" || !form.customerName.trim() || !form.content.trim()}
+                disabled={actionLoading === "save" || videoProcessing || !form.customerName.trim() || !form.content.trim()}
               >
-                {actionLoading === "save" ? "Saving..." : editingItem ? "Save Changes" : "Add Testimonial"}
+                {videoProcessing ? "Compressing Video..." : actionLoading === "save" ? "Saving..." : editingItem ? "Save Changes" : "Add Testimonial"}
               </Button>
             </div>
           </div>
