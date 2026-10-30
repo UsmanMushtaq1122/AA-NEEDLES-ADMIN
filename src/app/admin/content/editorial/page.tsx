@@ -122,21 +122,9 @@ export default function EditorialPage() {
       } else if (form.imageUrl && !form.imageUrl.startsWith("blob:")) {
         payload.append("imageUrl", form.imageUrl);
       }
-      const query = new URLSearchParams({
-        title,
-        subtitle: form.subtitle.trim(),
-        description: form.description.trim(),
-        link: form.link.trim(),
-        category: form.category.trim(),
-        isActive: String(form.active),
-        sortOrder: String(editingItem ? editingItem.order : editorials.length),
-      });
-      if (!selectedFile && form.imageUrl && !form.imageUrl.startsWith("blob:")) {
-        query.set("imageUrl", form.imageUrl);
-      }
       if (editingItem) {
         await api.upload(
-          `/editorial/${editingItem.id}?${query.toString()}`,
+          `/editorial/${editingItem.id}`,
           payload,
           "PUT",
           undefined,
@@ -145,7 +133,7 @@ export default function EditorialPage() {
         toast("success", "Editorial updated successfully");
       } else {
         await api.upload(
-          `/editorial?${query.toString()}`,
+          "/editorial",
           payload,
           "POST",
           undefined,
