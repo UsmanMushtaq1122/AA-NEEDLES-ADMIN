@@ -12,11 +12,22 @@ import {
   ChevronRight,
   LayoutDashboard,
   Menu,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const sections = [
+  {
+    title: "Collections",
+    description: "Seasonal lookbooks, campaign edits, and curated collections",
+    href: "/admin/content/collections",
+    icon: Sparkles,
+    count: null,
+    color: "from-[#C9A96E]/15 to-[#1A1A1A]/5",
+    iconColor: "text-[#C9A96E]",
+  },
+
   {
     title: "Banners",
     description: "Hero banners and announcement bars",

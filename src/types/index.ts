@@ -378,6 +378,18 @@ export interface DashboardAnalytics {
   lowStockProducts: { id: string; name: string; sku: string; stock: number; lowStockThreshold: number }[];
 }
 
+export interface Collection {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  productCount?: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

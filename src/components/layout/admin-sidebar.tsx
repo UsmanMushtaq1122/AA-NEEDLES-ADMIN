@@ -32,6 +32,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -61,6 +62,7 @@ const contentSection: NavSection = {
   label: "Content",
   icon: ChevronDown,
   items: [
+    { label: "Collections", href: "/admin/content/collections", icon: Sparkles },
     { label: "Banners", href: "/admin/content/banners", icon: Image },
     { label: "Testimonials", href: "/admin/content/testimonials", icon: Quote },
     { label: "FAQs", href: "/admin/content/faqs", icon: HelpCircle },

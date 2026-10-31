@@ -217,3 +217,13 @@ export const adminUserSchema = z.object({
   role: z.enum(["admin", "staff", "content_manager"]),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
+
+
+export const collectionSchema = z.object({
+  name: z.string().min(1, "Collection name is required"),
+  slug: z.string().optional(),
+  description: z.string().optional(),
+  image: z.string().optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().default(0),
+});
