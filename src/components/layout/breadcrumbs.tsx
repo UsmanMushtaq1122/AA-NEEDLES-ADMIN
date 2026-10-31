@@ -11,7 +11,6 @@ const segmentLabels: Record<string, string> = {
   customers: "Customers",
   content: "Content Management",
   banners: "Banners",
-  editorial: "Editorial",
   testimonials: "Testimonials",
   faqs: "FAQs",
   pages: "Pages",

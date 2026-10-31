@@ -62,7 +62,6 @@ const contentSection: NavSection = {
   icon: ChevronDown,
   items: [
     { label: "Banners", href: "/admin/content/banners", icon: Image },
-    { label: "Editorial", href: "/admin/content/editorial", icon: FileText },
     { label: "Testimonials", href: "/admin/content/testimonials", icon: Quote },
     { label: "FAQs", href: "/admin/content/faqs", icon: HelpCircle },
     { label: "Pages", href: "/admin/content/pages", icon: File },

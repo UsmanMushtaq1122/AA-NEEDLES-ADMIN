@@ -1,10 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Image,
-  BookOpen,
   Star,
   HelpCircle,
   FileText,
@@ -20,21 +19,12 @@ import { cn } from "@/lib/utils";
 const sections = [
   {
     title: "Banners",
-    description: "Hero banners, editorial banners, and announcement bars",
+    description: "Hero banners and announcement bars",
     href: "/admin/content/banners",
     icon: Image,
     count: 10,
     color: "from-[#1A1A1A]/5 to-[#C9A96E]/10",
     iconColor: "text-[#7A6543]",
-  },
-  {
-    title: "Editorial",
-    description: "Long-form editorial content and articles",
-    href: "/admin/content/editorial",
-    icon: BookOpen,
-    count: 5,
-    color: "from-[#8B1A1A]/5 to-[#C9A96E]/5",
-    iconColor: "text-[#8B1A1A]",
   },
   {
     title: "Testimonials",
@@ -56,7 +46,7 @@ const sections = [
   },
   {
     title: "Pages",
-    description: "CMS pages — about, policies, and custom content",
+    description: "CMS pages â€” about, policies, and custom content",
     href: "/admin/content/pages",
     icon: FileText,
     count: 6,

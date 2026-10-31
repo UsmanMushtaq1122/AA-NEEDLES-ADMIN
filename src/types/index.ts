@@ -195,7 +195,7 @@ export interface Banner {
   buttonText?: string;
   isActive: boolean;
   sortOrder: number;
-  type: "hero" | "editorial" | "announcement";
+  type: "hero" | "announcement";
   createdAt: string;
 }
 

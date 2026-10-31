@@ -105,7 +105,7 @@ export const bannerSchema = z.object({
   buttonText: z.string().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().default(0),
-  type: z.enum(["hero", "editorial", "announcement"]),
+  type: z.enum(["hero", "announcement"]),
 });
 
 export const testimonialSchema = z.object({

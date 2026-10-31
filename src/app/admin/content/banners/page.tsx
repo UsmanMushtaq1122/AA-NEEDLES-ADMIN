@@ -11,14 +11,9 @@ import {
   ChevronUp,
   ChevronDown,
   Image,
-  Eye,
-  EyeOff,
   GripVertical,
   X,
   Link as LinkIcon,
-  Type,
-  AlignLeft,
-  Palette,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,13 +25,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 
 async function optimizeBannerImage(
   file: File,
@@ -91,17 +83,6 @@ interface HeroBanner {
   order: number;
 }
 
-interface EditorialBanner {
-  id: string;
-  title: string;
-  subtitle: string;
-  imageUrl: string;
-  mobileImage: string;
-  link: string;
-  active: boolean;
-  order: number;
-}
-
 interface AnnouncementBar {
   id: string;
   text: string;
@@ -114,7 +95,6 @@ interface AnnouncementBar {
 
 export default function BannersPage() {
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
-  const [editorialBanners, setEditorialBanners] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -142,7 +122,6 @@ export default function BannersPage() {
           type: b.type || "hero",
         }));
         setHeroBanners(mapped.filter((b: any) => b.type === "hero"));
-        setEditorialBanners(mapped.filter((b: any) => b.type === "editorial"));
         setAnnouncements(mapped.filter((b: any) => b.type === "announcement"));
       })
       .catch(() => {})
@@ -153,7 +132,7 @@ export default function BannersPage() {
     fetchBanners();
   }, [fetchBanners]);
   const [editingBanner, setEditingBanner] = useState<any>(null);
-  const [dialogType, setDialogType] = useState<"hero" | "editorial" | "announcement">("hero");
+  const [dialogType, setDialogType] = useState<"hero" | "announcement">("hero");
   const [form, setForm] = useState({
     title: "",
     subtitle: "",
@@ -263,7 +242,7 @@ export default function BannersPage() {
       formData.append("mobileImageUrl", form.mobileImageUrl);
     }
     if (!editingBanner) {
-      formData.append("sortOrder", String(dialogType === "hero" ? heroBanners.length : dialogType === "editorial" ? editorialBanners.length : 0));
+      formData.append("sortOrder", String(dialogType === "hero" ? heroBanners.length : 0));
     }
 
     try {
@@ -293,8 +272,8 @@ export default function BannersPage() {
     }
   };
 
-  const toggleActive = async (id: string, type: "hero" | "editorial" | "announcement") => {
-    const list = type === "hero" ? heroBanners : type === "editorial" ? editorialBanners : announcements;
+  const toggleActive = async (id: string, type: "hero" | "announcement") => {
+    const list = type === "hero" ? heroBanners : announcements;
     const item = list.find((b) => b.id === id);
     if (!item) return;
 
@@ -310,9 +289,9 @@ export default function BannersPage() {
   const moveItem = async (
     id: string,
     direction: "up" | "down",
-    type: "hero" | "editorial"
+    type: "hero"
   ) => {
-    const list = type === "hero" ? heroBanners : editorialBanners;
+    const list = heroBanners;
     const idx = list.findIndex((b) => b.id === id);
     if (idx === -1) return;
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -333,7 +312,7 @@ export default function BannersPage() {
     }
   };
 
-  const deleteItem = async (id: string, type: "hero" | "editorial" | "announcement") => {
+  const deleteItem = async (id: string, type: "hero" | "announcement") => {
     try {
       await api.delete(`/banners/${id}`);
       toast("success", "Banner deleted successfully");
@@ -358,9 +337,6 @@ export default function BannersPage() {
             <TabsList className="bg-white border border-stone-100 p-1">
               <TabsTrigger value="hero" className="font-light text-sm tracking-wide data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white">
                 Hero Banners
-              </TabsTrigger>
-              <TabsTrigger value="editorial" className="font-light text-sm tracking-wide data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white">
-                Editorial Banners
               </TabsTrigger>
               <TabsTrigger value="announcement" className="font-light text-sm tracking-wide data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white">
                 Announcement Bar
@@ -474,108 +450,6 @@ export default function BannersPage() {
               </AnimatePresence>
             </TabsContent>
 
-            <TabsContent value="editorial" className="space-y-4">
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => openAdd("editorial")}
-                  className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Editorial Banner
-                </Button>
-              </div>
-              <AnimatePresence mode="popLayout">
-                {editorialBanners.map((banner, index) => (
-                  <motion.div
-                    key={banner.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Card className="bg-white border-0 shadow-sm overflow-hidden">
-                      <CardContent className="p-0">
-                        <div className="flex">
-                          <div className="w-full md:w-80 h-56 md:h-48 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
-                            {banner.imageUrl ? (
-                              <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover max-h-[320px]" />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-[#8B1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
-                                <Image className="w-12 h-12 text-[#1A1A1A]/15" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 p-6 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-medium text-[#1A1A1A]">{banner.title}</h3>
-                                {!banner.active && (
-                                  <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
-                                    Draft
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-[#1A1A1A]/50 font-light">{banner.subtitle}</p>
-                              <p className="text-xs text-[#7A6543] mt-2 font-light flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" />
-                                {banner.link}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between mt-4">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-[#1A1A1A]/30 hover:text-[#1A1A1A]"
-                                  onClick={() => moveItem(banner.id, "up", "editorial")}
-                                  disabled={index === 0}
-                                >
-                                  <ChevronUp className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-[#1A1A1A]/30 hover:text-[#1A1A1A]"
-                                  onClick={() => moveItem(banner.id, "down", "editorial")}
-                                  disabled={index === editorialBanners.length - 1}
-                                >
-                                  <ChevronDown className="w-4 h-4" />
-                                </Button>
-                                <GripVertical className="w-4 h-4 text-[#1A1A1A]/15" />
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <Switch
-                                  checked={banner.active}
-                                  onCheckedChange={() => toggleActive(banner.id, "editorial")}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => openEdit(banner, "editorial")}
-                                >
-                                  <Pencil className="w-4 h-4 text-[#1A1A1A]/40" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => deleteItem(banner.id, "editorial")}
-                                >
-                                  <Trash2 className="w-4 h-4 text-[#8B1A1A]/40 hover:text-[#8B1A1A]" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </TabsContent>
-
             <TabsContent value="announcement" className="space-y-4">
               <div className="flex justify-end">
                 <Button
@@ -641,7 +515,7 @@ export default function BannersPage() {
         <DialogContent className="bg-white border-0 max-w-lg md:max-w-3xl w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-light tracking-wide text-[#1A1A1A]">
-              {editingBanner ? "Edit" : "Add"} {dialogType === "hero" ? "Hero Banner" : dialogType === "editorial" ? "Editorial Banner" : "Announcement"}
+              {editingBanner ? "Edit" : "Add"} {dialogType === "hero" ? "Hero Banner" : "Announcement"}
             </DialogTitle>
           </DialogHeader>
 
