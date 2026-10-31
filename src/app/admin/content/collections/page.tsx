@@ -210,7 +210,9 @@ export default function CollectionsPage() {
 
       if (imageFile) {
         const fd = new FormData();
+        fd.append("title", formData.name.trim());
         fd.append("name", formData.name.trim());
+        fd.append("subtitle", targetSlug);
         fd.append("slug", targetSlug);
         if (formData.description) fd.append("description", formData.description.trim());
         fd.append("isActive", String(formData.isActive));
@@ -225,11 +227,16 @@ export default function CollectionsPage() {
           toast("success", "Collection created successfully");
         }
       } else {
-        const payload: Partial<Collection> = {
+        const payload = {
+          title: formData.name.trim(),
           name: formData.name.trim(),
+          subtitle: targetSlug,
           slug: targetSlug,
           description: formData.description.trim(),
           image:
+            formData.image ||
+            "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80",
+          imageUrl:
             formData.image ||
             "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80",
           isActive: formData.isActive,
