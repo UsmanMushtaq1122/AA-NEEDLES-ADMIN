@@ -6,7 +6,7 @@ export async function compressImage(
     quality?: number
   } = {}
 ): Promise<File> {
-  const { maxWidth = 1600, maxHeight = 1600, quality = 0.82 } = options
+  const { maxWidth = 2400, maxHeight = 2400, quality = 0.92 } = options
 
   if (!file.type.startsWith("image/")) {
     throw new Error("Please select a valid image file.")

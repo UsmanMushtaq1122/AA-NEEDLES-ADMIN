@@ -64,9 +64,9 @@ export default function BulkUploadPage() {
       for (const file of imageFiles.slice(0, remaining)) {
         try {
           const compressedFile = await compressImage(file, {
-            maxWidth: 1000,
-            maxHeight: 1000,
-            quality: 0.7,
+            maxWidth: 2400,
+            maxHeight: 2400,
+            quality: 0.92,
           });
 
           if (compressedFile.size <= MAX_FILE_SIZE) {

@@ -39,7 +39,7 @@ async function optimizeBannerImage(
   try {
     const scale = Math.min(1, maxWidth / bitmap.width, maxHeight / bitmap.height);
     const needsResize = scale < 1;
-    if (!needsResize && file.size <= 1024 * 1024) return file;
+    if (!needsResize) return file;
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -54,18 +54,19 @@ async function optimizeBannerImage(
           result
             ? resolve(result)
             : reject(new Error("Could not optimize the banner image.")),
-        "image/webp",
-        0.82
+        file.type === "image/png" ? "image/png" : "image/jpeg",
+        0.95
       );
     });
 
-    if (blob.type !== "image/webp") {
-      throw new Error("This browser could not optimize the image. Try a JPEG or WebP image.");
+    if (!blob.type) {
+      throw new Error("This browser could not prepare the image. Try a JPEG or WebP image.");
     }
 
     if (!needsResize && blob.size >= file.size) return file;
     const name = file.name.replace(/\.[^.]+$/, "") || "banner";
-    return new File([blob], `${name}.webp`, { type: blob.type });
+    const extension = blob.type === "image/png" ? "png" : "jpg";
+    return new File([blob], `${name}.${extension}`, { type: blob.type });
   } finally {
     bitmap.close();
   }
@@ -247,9 +248,9 @@ export default function BannersPage() {
 
     try {
       const [desktopUpload, mobileUpload] = await Promise.all([
-        selectedFile ? optimizeBannerImage(selectedFile, 1920, 1200) : null,
+        selectedFile ? optimizeBannerImage(selectedFile, 3840, 2160) : null,
         mobileSelectedFile
-          ? optimizeBannerImage(mobileSelectedFile, 1200, 1600)
+          ? optimizeBannerImage(mobileSelectedFile, 2400, 3200)
           : null,
       ]);
       if (editingBanner) {
