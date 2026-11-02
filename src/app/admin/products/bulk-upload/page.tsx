@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
+import { compressImage } from "@/lib/compress-image";
 
 interface UploadedImage {
   url: string;
@@ -63,7 +64,7 @@ export default function BulkUploadPage() {
       for (const file of imageFiles.slice(0, remaining)) {
         try {
           if (file.size <= MAX_FILE_SIZE) {
-            selectedFiles.push(file);
+            selectedFiles.push(await compressImage(file));
           } else {
             toast("error", `${file.name} is too large. Maximum file size is 10MB.`)
           }

@@ -4,9 +4,15 @@ export async function compressImage(
     maxWidth?: number
     maxHeight?: number
     quality?: number
+    maxFileSize?: number
   } = {}
 ): Promise<File> {
-  const { maxWidth = 2400, maxHeight = 2400, quality = 0.92 } = options
+  const {
+    maxWidth = 2000,
+    maxHeight = 2000,
+    quality = 0.82,
+    maxFileSize = 4 * 1024 * 1024,
+  } = options
 
   if (!file.type.startsWith("image/")) {
     throw new Error("Please select a valid image file.")
@@ -22,21 +28,44 @@ export async function compressImage(
       image.src = objectUrl
     })
 
+    if (file.size <= maxFileSize && image.width <= maxWidth && image.height <= maxHeight) {
+      return file
+    }
+
     const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height)
-    const canvas = document.createElement("canvas")
-    canvas.width = Math.max(1, Math.round(image.width * scale))
-    canvas.height = Math.max(1, Math.round(image.height * scale))
+    let width = Math.max(1, Math.round(image.width * scale))
+    let height = Math.max(1, Math.round(image.height * scale))
+    let blob: Blob | null = null
+    let currentQuality = quality
 
-    const context = canvas.getContext("2d")
-    if (!context) throw new Error("Image processing is not supported in this browser.")
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
 
-    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      const context = canvas.getContext("2d")
+      if (!context) {
+        throw new Error("Image processing is not supported in this browser.")
+      }
 
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", quality)
-    })
+      context.drawImage(image, 0, 0, width, height)
+      blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", currentQuality)
+      })
+
+      if (blob && blob.size <= maxFileSize) break
+      if (currentQuality > 0.55) {
+        currentQuality -= 0.08
+      } else {
+        width = Math.max(1, Math.round(width * 0.8))
+        height = Math.max(1, Math.round(height * 0.8))
+      }
+    }
 
     if (!blob) throw new Error("Unable to compress image.")
+    if (blob.size > maxFileSize) {
+      throw new Error("Image could not be compressed below the upload size limit.")
+    }
 
     return new File(
       [blob],

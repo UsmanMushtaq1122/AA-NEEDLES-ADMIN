@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { productSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { compressImage } from "@/lib/compress-image";
 import { useToast } from "@/components/ui/toast";
 import type { z } from "zod";
 import type { Product } from "@/types";
@@ -347,8 +348,12 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
             continue;
           }
 
-          const url = URL.createObjectURL(file);
-          setImages((prev) => [...prev, { url, alt: file.name, file }]);
+          const compressedFile = await compressImage(file);
+          const url = URL.createObjectURL(compressedFile);
+          setImages((prev) => [
+            ...prev,
+            { url, alt: file.name, file: compressedFile },
+          ]);
         } catch (error) {
           console.error("Product image processing failed:", error);
           setImageError(`${file.name} could not be processed and was skipped.`);
@@ -384,8 +389,12 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
             continue;
           }
 
-          const url = URL.createObjectURL(file);
-          setImages((prev) => [...prev, { url, alt: file.name, file }]);
+          const compressedFile = await compressImage(file);
+          const url = URL.createObjectURL(compressedFile);
+          setImages((prev) => [
+            ...prev,
+            { url, alt: file.name, file: compressedFile },
+          ]);
         } catch (error) {
           console.error("Product image processing failed:", error);
           setImageError(`${file.name} could not be processed and was skipped.`);

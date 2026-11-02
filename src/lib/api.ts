@@ -239,7 +239,7 @@ class ApiClient {
     if (!response.ok) {
       if (response.status === 413) {
         throw new ApiError(
-          "The file is too large for the production upload gateway. Choose a video under 10 MB.",
+          "The file is too large for the production upload gateway. Choose a smaller image or video.",
           response.status
         );
       }
