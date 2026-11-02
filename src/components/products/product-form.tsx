@@ -24,14 +24,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { productSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { compressImage } from "@/lib/compress-image";
 import { useToast } from "@/components/ui/toast";
 import type { z } from "zod";
 import type { Product } from "@/types";
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-const MAX_FILE_SIZE = 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const STANDARD_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
 const CARE_SUGGESTIONS = [
   "Dry clean recommended",
@@ -343,19 +342,13 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       setImageError("");
       for (const file of selectedFiles) {
         try {
-          const compressedFile = await compressImage(file, {
-            maxWidth: 2400,
-            maxHeight: 2400,
-            quality: 0.92,
-          });
-
-          if (compressedFile.size > MAX_FILE_SIZE) {
-            setImageError(`${file.name} is too large after optimization and was skipped.`);
+          if (file.size > MAX_FILE_SIZE) {
+            setImageError(`${file.name} is too large. Maximum file size is 10MB.`);
             continue;
           }
 
-          const url = URL.createObjectURL(compressedFile);
-          setImages((prev) => [...prev, { url, alt: file.name, file: compressedFile }]);
+          const url = URL.createObjectURL(file);
+          setImages((prev) => [...prev, { url, alt: file.name, file }]);
         } catch (error) {
           console.error("Product image processing failed:", error);
           setImageError(`${file.name} could not be processed and was skipped.`);
@@ -386,19 +379,13 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       setImageError("");
       for (const file of files) {
         try {
-          const compressedFile = await compressImage(file, {
-            maxWidth: 2400,
-            maxHeight: 2400,
-            quality: 0.92,
-          });
-
-          if (compressedFile.size > MAX_FILE_SIZE) {
-            setImageError(`${file.name} is too large after optimization and was skipped.`);
+          if (file.size > MAX_FILE_SIZE) {
+            setImageError(`${file.name} is too large. Maximum file size is 10MB.`);
             continue;
           }
 
-          const url = URL.createObjectURL(compressedFile);
-          setImages((prev) => [...prev, { url, alt: file.name, file: compressedFile }]);
+          const url = URL.createObjectURL(file);
+          setImages((prev) => [...prev, { url, alt: file.name, file }]);
         } catch (error) {
           console.error("Product image processing failed:", error);
           setImageError(`${file.name} could not be processed and was skipped.`);
@@ -875,7 +862,7 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
                           <img
                             src={img.url}
                             alt={img.alt}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         </div>
                         <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-gradient-to-t from-black/50 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">

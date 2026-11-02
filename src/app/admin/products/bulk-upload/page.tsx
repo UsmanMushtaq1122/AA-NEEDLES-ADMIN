@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
-import { compressImage } from "@/lib/compress-image";
 
 interface UploadedImage {
   url: string;
@@ -42,7 +41,7 @@ async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data
 }
 
 const MAX_IMAGES = 5;
-const MAX_FILE_SIZE = 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function BulkUploadPage() {
   const router = useRouter();
@@ -63,16 +62,10 @@ export default function BulkUploadPage() {
       const selectedFiles: File[] = [];
       for (const file of imageFiles.slice(0, remaining)) {
         try {
-          const compressedFile = await compressImage(file, {
-            maxWidth: 2400,
-            maxHeight: 2400,
-            quality: 0.92,
-          });
-
-          if (compressedFile.size <= MAX_FILE_SIZE) {
-            selectedFiles.push(compressedFile);
+          if (file.size <= MAX_FILE_SIZE) {
+            selectedFiles.push(file);
           } else {
-            toast("error", `${file.name} is too large after optimization and was skipped.`)
+            toast("error", `${file.name} is too large. Maximum file size is 10MB.`)
           }
         } catch (error) {
           console.error("Product image processing failed:", error)

@@ -24,7 +24,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { categorySchema } from "@/lib/validations"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
-import { compressImage } from "@/lib/compress-image"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -236,15 +235,13 @@ export default function CategoriesPage() {
     }
 
     try {
-      const compressedFile = await compressImage(file)
-
-      if (compressedFile.size > 3 * 1024 * 1024) {
-        toast("error", "Please choose a smaller image.")
+      if (file.size > 10 * 1024 * 1024) {
+        toast("error", "Please choose an image no larger than 10MB.")
         return
       }
 
-      setSelectedFile(compressedFile)
-      setImagePreview(URL.createObjectURL(compressedFile))
+      setSelectedFile(file)
+      setImagePreview(URL.createObjectURL(file))
     } catch (error) {
       console.error("Category image processing failed:", error)
       toast("error", "Unable to process this image. Please try another file.")
