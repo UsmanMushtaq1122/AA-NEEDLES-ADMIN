@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { categorySchema } from "@/lib/validations"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
+import { prepareImageUpload, validateImageFile } from "@/lib/image-upload"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -229,22 +230,23 @@ export default function CategoriesPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith("image/")) {
-      toast("error", "Please select a valid image file.")
-      return
-    }
-
     try {
-      if (file.size > 10 * 1024 * 1024) {
-        toast("error", "Please choose an image no larger than 10MB.")
+      const validationError = validateImageFile(file)
+      if (validationError) {
+        toast("error", validationError)
         return
       }
-
-      setSelectedFile(file)
-      setImagePreview(URL.createObjectURL(file))
+      const preparedFile = await prepareImageUpload(file, {
+        maxWidth: 2400,
+        maxHeight: 2400,
+      })
+      setSelectedFile(preparedFile)
+      setImagePreview(URL.createObjectURL(preparedFile))
     } catch (error) {
       console.error("Category image processing failed:", error)
-      toast("error", "Unable to process this image. Please try another file.")
+      toast("error", error instanceof Error ? error.message : "Unable to process this image. Please try another file.")
+    } finally {
+      e.target.value = ""
     }
   }
 

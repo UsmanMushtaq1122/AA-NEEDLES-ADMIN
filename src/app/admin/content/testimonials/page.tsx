@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
+import { prepareImageUpload, validateImageFile } from "@/lib/image-upload";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -539,7 +540,25 @@ export default function TestimonialsPage() {
                     key={fileInputKey}
                     type="file"
                     accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) {
+                        setPhotoFile(null);
+                        return;
+                      }
+                      const validationError = validateImageFile(file);
+                      if (validationError) {
+                        toast("error", validationError);
+                        e.target.value = "";
+                        return;
+                      }
+                      try {
+                        setPhotoFile(await prepareImageUpload(file));
+                      } catch (error) {
+                        toast("error", error instanceof Error ? error.message : "Unable to process this image.");
+                        e.target.value = "";
+                      }
+                    }}
                     className="h-auto min-h-11 border-stone-200 bg-white py-2 font-light file:mr-3 file:rounded-md file:bg-[#EDE6DC] file:px-3 file:py-1 file:text-xs"
                   />
                 </div>

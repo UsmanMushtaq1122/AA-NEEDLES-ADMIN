@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
+import { prepareImageUpload, validateImageFile } from "@/lib/image-upload";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -29,48 +30,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-async function optimizeBannerImage(
-  file: File,
-  maxWidth: number,
-  maxHeight: number
-): Promise<File> {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const scale = Math.min(1, maxWidth / bitmap.width, maxHeight / bitmap.height);
-    const needsResize = scale < 1;
-    if (!needsResize) return file;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Could not prepare the banner image.");
-
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) =>
-          result
-            ? resolve(result)
-            : reject(new Error("Could not optimize the banner image.")),
-        file.type === "image/png" ? "image/png" : "image/jpeg",
-        0.95
-      );
-    });
-
-    if (!blob.type) {
-      throw new Error("This browser could not prepare the image. Try a JPEG or WebP image.");
-    }
-
-    if (!needsResize && blob.size >= file.size) return file;
-    const name = file.name.replace(/\.[^.]+$/, "") || "banner";
-    const extension = blob.type === "image/png" ? "png" : "jpg";
-    return new File([blob], `${name}.${extension}`, { type: blob.type });
-  } finally {
-    bitmap.close();
-  }
-}
 
 interface HeroBanner {
   id: string;
@@ -248,9 +207,9 @@ export default function BannersPage() {
 
     try {
       const [desktopUpload, mobileUpload] = await Promise.all([
-        selectedFile ? optimizeBannerImage(selectedFile, 3840, 2160) : null,
+        selectedFile ? prepareImageUpload(selectedFile, { maxWidth: 3840, maxHeight: 2160 }) : null,
         mobileSelectedFile
-          ? optimizeBannerImage(mobileSelectedFile, 2400, 3200)
+          ? prepareImageUpload(mobileSelectedFile, { maxWidth: 2400, maxHeight: 3200 })
           : null,
       ]);
       if (editingBanner) {
@@ -639,12 +598,16 @@ export default function BannersPage() {
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
-                        setSelectedFile(file);
-                        if (file) {
-                          setImagePreview(URL.createObjectURL(file));
-                        } else {
-                          setImagePreview("");
+                        if (!file) return;
+                        const validationError = validateImageFile(file);
+                        if (validationError) {
+                          toast("error", validationError);
+                          e.target.value = "";
+                          return;
                         }
+                        setSelectedFile(file);
+                        setImagePreview(URL.createObjectURL(file));
+                        e.target.value = "";
                       }}
                     />
                   </label>
@@ -675,12 +638,16 @@ export default function BannersPage() {
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
-                        setMobileSelectedFile(file);
-                        if (file) {
-                          setMobileImagePreview(URL.createObjectURL(file));
-                        } else {
-                          setMobileImagePreview("");
+                        if (!file) return;
+                        const validationError = validateImageFile(file);
+                        if (validationError) {
+                          toast("error", validationError);
+                          e.target.value = "";
+                          return;
                         }
+                        setMobileSelectedFile(file);
+                        setMobileImagePreview(URL.createObjectURL(file));
+                        e.target.value = "";
                       }}
                     />
                   </label>
