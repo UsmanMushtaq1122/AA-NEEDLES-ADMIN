@@ -1,6 +1,7 @@
 import { compressImage } from "./compress-image"
 
-export const MAX_IMAGE_FILE_SIZE = 4 * 1024 * 1024
+export const MAX_IMAGE_FILE_SIZE = 800 * 1024
+export const MAX_BANNER_IMAGE_FILE_SIZE = 400 * 1024
 export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -21,7 +22,7 @@ export function validateImageFile(file: File): string | null {
 
 export async function prepareImageUpload(
   file: File,
-  options: { maxWidth?: number; maxHeight?: number } = {},
+  options: { maxWidth?: number; maxHeight?: number; maxFileSize?: number } = {},
 ): Promise<File> {
   const validationError = validateImageFile(file)
   if (validationError) throw new Error(validationError)
@@ -29,7 +30,7 @@ export async function prepareImageUpload(
   return compressImage(file, {
     maxWidth: options.maxWidth ?? 2400,
     maxHeight: options.maxHeight ?? 2400,
-    maxFileSize: MAX_IMAGE_FILE_SIZE,
+    maxFileSize: options.maxFileSize ?? MAX_IMAGE_FILE_SIZE,
     quality: 0.84,
   })
 }

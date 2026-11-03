@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
-import { prepareImageUpload, validateImageFile } from "@/lib/image-upload";
+import {
+  MAX_BANNER_IMAGE_FILE_SIZE,
+  prepareImageUpload,
+  validateImageFile,
+} from "@/lib/image-upload";
 import { useToast } from "@/components/ui/toast";
 import {
   Plus,
@@ -207,9 +211,19 @@ export default function BannersPage() {
 
     try {
       const [desktopUpload, mobileUpload] = await Promise.all([
-        selectedFile ? prepareImageUpload(selectedFile, { maxWidth: 3840, maxHeight: 2160 }) : null,
+        selectedFile
+          ? prepareImageUpload(selectedFile, {
+              maxWidth: 3840,
+              maxHeight: 2160,
+              maxFileSize: MAX_BANNER_IMAGE_FILE_SIZE,
+            })
+          : null,
         mobileSelectedFile
-          ? prepareImageUpload(mobileSelectedFile, { maxWidth: 2400, maxHeight: 3200 })
+          ? prepareImageUpload(mobileSelectedFile, {
+              maxWidth: 2400,
+              maxHeight: 3200,
+              maxFileSize: MAX_BANNER_IMAGE_FILE_SIZE,
+            })
           : null,
       ]);
       if (editingBanner) {
