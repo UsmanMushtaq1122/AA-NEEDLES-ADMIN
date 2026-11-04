@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import {
@@ -167,7 +167,8 @@ export default function BannersPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     const announcementText = form.text.trim();
 
     if (dialogType === "announcement" && !announcementText) {
@@ -493,7 +494,10 @@ export default function BannersPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 mt-2 max-h-[70vh] md:max-h-[72vh] overflow-y-auto pr-3">
+          <form
+            onSubmit={handleSave}
+            className="space-y-5 mt-2 max-h-[70vh] md:max-h-[72vh] overflow-y-auto pr-3"
+          >
             {dialogType === "announcement" ? (
               <>
                 <div>
@@ -712,13 +716,14 @@ export default function BannersPage() {
             <div className="flex justify-end gap-3 pt-2">
               <Button
                 variant="outline"
+                type="button"
                 onClick={() => setDialogOpen(false)}
                 className="border-stone-200 text-[#1A1A1A]/60 font-light"
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleSave}
+                type="submit"
                 className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
                 disabled={actionLoading === "save"}
               >
@@ -733,7 +738,7 @@ export default function BannersPage() {
                       : "Add Banner"}
               </Button>
             </div>
-          </div>
+            </form>
         </DialogContent>
       </Dialog>
     </div>
