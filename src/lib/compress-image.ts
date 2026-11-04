@@ -36,11 +36,22 @@ export async function compressImage(
     let width = Math.max(1, Math.round(image.width * scale))
     let height = Math.max(1, Math.round(image.height * scale))
     let blob: Blob | null = null
-    const outputType = file.type === "image/png" ? "image/png" : "image/webp"
-    const qualitySteps = [Math.max(0.96, quality), 0.93, 0.9, 0.87, 0.84]
+    // WebP supports alpha and gives canvas.toBlob a usable quality setting for
+    // both PNG and photographic source files.
+    const outputType = "image/webp"
+    const qualitySteps = [
+      Math.min(0.96, Math.max(0.9, quality)),
+      0.86,
+      0.82,
+      0.78,
+      0.74,
+      0.7,
+      0.66,
+    ]
     let currentQuality = qualitySteps[0]
+    let attempt = 0
 
-    for (let attempt = 0; attempt < qualitySteps.length + 3; attempt += 1) {
+    while (attempt < 35) {
       const canvas = document.createElement("canvas")
       canvas.width = width
       canvas.height = height
@@ -56,12 +67,15 @@ export async function compressImage(
       })
 
       if (blob && blob.size <= maxFileSize) break
-      if (attempt < qualitySteps.length - 1) {
-        currentQuality = qualitySteps[attempt + 1]
+
+      const qualityIndex = attempt % qualitySteps.length
+      if (qualityIndex < qualitySteps.length - 1) {
+        currentQuality = qualitySteps[qualityIndex + 1]
       } else {
-        width = Math.max(1, Math.round(width * 0.9))
-        height = Math.max(1, Math.round(height * 0.9))
+        width = Math.max(320, Math.round(width * 0.85))
+        height = Math.max(320, Math.round(height * 0.85))
       }
+      attempt += 1
     }
 
     if (!blob) throw new Error("Unable to compress image.")
@@ -71,7 +85,7 @@ export async function compressImage(
 
     return new File(
       [blob],
-      `${file.name.replace(/\.[^.]+$/, "")}.${outputType === "image/png" ? "png" : "webp"}`,
+      `${file.name.replace(/\.[^.]+$/, "")}.webp`,
       { type: outputType }
     )
   } finally {
