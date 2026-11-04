@@ -11,7 +11,7 @@ export async function compressImage(
     maxWidth = 2000,
     maxHeight = 2000,
     quality = 0.82,
-    maxFileSize = 4 * 1024 * 1024,
+    maxFileSize = 3.5 * 1024 * 1024,
   } = options
 
   if (!file.type.startsWith("image/")) {

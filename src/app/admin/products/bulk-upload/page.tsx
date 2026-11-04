@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { compressImage } from "@/lib/compress-image";
 
 interface UploadedImage {
@@ -31,10 +31,20 @@ async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data
   for (const file of files) {
     const formData = new FormData();
     formData.append("images", file);
-    const response = await api.upload<{ success: boolean; data: UploadedImage[] }>(
-      "/products/bulk-upload",
-      formData
-    );
+    let response;
+    try {
+      response = await api.upload<{ success: boolean; data: UploadedImage[] }>(
+        "/products/bulk-upload",
+        formData
+      );
+    } catch (error) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      const status = error instanceof ApiError ? `HTTP ${error.status}` : "network error";
+      throw new Error(
+        `${file.name} (${sizeMb} MB) failed to upload (${status}). ` +
+          "Choose a smaller image and retry. Previously uploaded images were preserved."
+      );
+    }
     uploadedImages.push(...(response.data || []));
   }
 
@@ -42,7 +52,8 @@ async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data
 }
 
 const MAX_IMAGES = 5;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_SOURCE_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_UPLOAD_FILE_SIZE = 3.5 * 1024 * 1024;
 
 export default function BulkUploadPage() {
   const router = useRouter();
@@ -63,11 +74,13 @@ export default function BulkUploadPage() {
       const selectedFiles: File[] = [];
       for (const file of imageFiles.slice(0, remaining)) {
         try {
-          if (file.size <= MAX_FILE_SIZE) {
-            selectedFiles.push(await compressImage(file));
-          } else {
-            toast("error", `${file.name} is too large. Maximum file size is 10MB.`)
+          if (file.size > MAX_SOURCE_FILE_SIZE) {
+            toast("error", `${file.name} is too large. Maximum source file size is 50MB.`)
+            continue;
           }
+          selectedFiles.push(await compressImage(file, {
+            maxFileSize: MAX_UPLOAD_FILE_SIZE,
+          }));
         } catch (error) {
           console.error("Product image processing failed:", error)
           toast("error", `${file.name} could not be processed and was skipped.`)

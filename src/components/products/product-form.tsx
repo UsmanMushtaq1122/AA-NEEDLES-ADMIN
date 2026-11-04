@@ -31,7 +31,8 @@ import type { Product } from "@/types";
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_SOURCE_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_UPLOAD_FILE_SIZE = 3.5 * 1024 * 1024;
 const STANDARD_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
 const CARE_SUGGESTIONS = [
   "Dry clean recommended",
@@ -343,12 +344,14 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       setImageError("");
       for (const file of selectedFiles) {
         try {
-          if (file.size > MAX_FILE_SIZE) {
-            setImageError(`${file.name} is too large. Maximum file size is 10MB.`);
+          if (file.size > MAX_SOURCE_FILE_SIZE) {
+            setImageError(`${file.name} is too large. Maximum source file size is 50MB.`);
             continue;
           }
 
-          const compressedFile = await compressImage(file);
+          const compressedFile = await compressImage(file, {
+            maxFileSize: MAX_UPLOAD_FILE_SIZE,
+          });
           const url = URL.createObjectURL(compressedFile);
           setImages((prev) => [
             ...prev,
@@ -384,12 +387,14 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       setImageError("");
       for (const file of files) {
         try {
-          if (file.size > MAX_FILE_SIZE) {
-            setImageError(`${file.name} is too large. Maximum file size is 10MB.`);
+          if (file.size > MAX_SOURCE_FILE_SIZE) {
+            setImageError(`${file.name} is too large. Maximum source file size is 50MB.`);
             continue;
           }
 
-          const compressedFile = await compressImage(file);
+          const compressedFile = await compressImage(file, {
+            maxFileSize: MAX_UPLOAD_FILE_SIZE,
+          });
           const url = URL.createObjectURL(compressedFile);
           setImages((prev) => [
             ...prev,
@@ -446,12 +451,27 @@ function ProductForm({ initialData, onSubmit, isLoading }: ProductFormProps) {
       if (pending.length > 0) {
         const uploadedUrls: string[] = [];
         for (const img of pending) {
+          const file = img.file;
+          if (!file) continue;
           const formData = new FormData();
-          if (img.file) formData.append("images", img.file);
-          const res = await api.upload<{ success: boolean; data: { url: string; publicId: string }[] }>(
-            "/products/bulk-upload",
-            formData
-          );
+          formData.append("images", file);
+          let res;
+          try {
+            res = await api.upload<{ success: boolean; data: { url: string; publicId: string }[] }>(
+              "/products/bulk-upload",
+              formData
+            );
+          } catch (error) {
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+            const status = error instanceof Error && "status" in error
+              ? ` (HTTP ${(error as Error & { status?: number }).status || "error"})`
+              : "";
+            throw new Error(
+              `${data.name} (${data.sku}) image ${file.name} (${sizeMb} MB) failed to upload${status}. ` +
+                "The image was compressed but is still too large for the production gateway. " +
+                "Choose a smaller image."
+            );
+          }
           const uploaded = res.data || [];
           uploaded.forEach((u) => uploadedUrls.push(u.url));
         }
