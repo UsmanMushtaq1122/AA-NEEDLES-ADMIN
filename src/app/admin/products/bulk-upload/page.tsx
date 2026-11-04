@@ -53,7 +53,7 @@ async function bulkUploadImages(files: File[]): Promise<{ success: boolean; data
 
 const MAX_IMAGES = 5;
 const MAX_SOURCE_FILE_SIZE = 50 * 1024 * 1024;
-const MAX_UPLOAD_FILE_SIZE = 3.5 * 1024 * 1024;
+const MAX_UPLOAD_FILE_SIZE = 700 * 1024;
 
 export default function BulkUploadPage() {
   const router = useRouter();

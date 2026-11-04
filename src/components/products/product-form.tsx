@@ -32,7 +32,7 @@ import type { Product } from "@/types";
 type ProductFormData = z.infer<typeof productSchema>;
 
 const MAX_SOURCE_FILE_SIZE = 50 * 1024 * 1024;
-const MAX_UPLOAD_FILE_SIZE = 3.5 * 1024 * 1024;
+const MAX_UPLOAD_FILE_SIZE = 700 * 1024;
 const STANDARD_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
 const CARE_SUGGESTIONS = [
   "Dry clean recommended",

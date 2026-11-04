@@ -8,10 +8,10 @@ export async function compressImage(
   } = {}
 ): Promise<File> {
   const {
-    maxWidth = 2000,
-    maxHeight = 2000,
+    maxWidth = 1600,
+    maxHeight = 1600,
     quality = 0.82,
-    maxFileSize = 3.5 * 1024 * 1024,
+    maxFileSize = 700 * 1024,
   } = options
 
   if (!file.type.startsWith("image/")) {
