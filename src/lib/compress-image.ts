@@ -36,9 +36,11 @@ export async function compressImage(
     let width = Math.max(1, Math.round(image.width * scale))
     let height = Math.max(1, Math.round(image.height * scale))
     let blob: Blob | null = null
-    let currentQuality = quality
+    const outputType = file.type === "image/png" ? "image/png" : "image/webp"
+    const qualitySteps = [Math.max(0.96, quality), 0.93, 0.9, 0.87, 0.84]
+    let currentQuality = qualitySteps[0]
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    for (let attempt = 0; attempt < qualitySteps.length + 3; attempt += 1) {
       const canvas = document.createElement("canvas")
       canvas.width = width
       canvas.height = height
@@ -50,15 +52,15 @@ export async function compressImage(
 
       context.drawImage(image, 0, 0, width, height)
       blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", currentQuality)
+        canvas.toBlob(resolve, outputType, currentQuality)
       })
 
       if (blob && blob.size <= maxFileSize) break
-      if (currentQuality > 0.55) {
-        currentQuality -= 0.08
+      if (attempt < qualitySteps.length - 1) {
+        currentQuality = qualitySteps[attempt + 1]
       } else {
-        width = Math.max(1, Math.round(width * 0.8))
-        height = Math.max(1, Math.round(height * 0.8))
+        width = Math.max(1, Math.round(width * 0.9))
+        height = Math.max(1, Math.round(height * 0.9))
       }
     }
 
@@ -69,8 +71,8 @@ export async function compressImage(
 
     return new File(
       [blob],
-      `${file.name.replace(/\.[^.]+$/, "")}.jpg`,
-      { type: "image/jpeg" }
+      `${file.name.replace(/\.[^.]+$/, "")}.${outputType === "image/png" ? "png" : "webp"}`,
+      { type: outputType }
     )
   } finally {
     URL.revokeObjectURL(objectUrl)

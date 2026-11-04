@@ -1,7 +1,7 @@
 import { compressImage } from "./compress-image"
 
-export const MAX_IMAGE_FILE_SIZE = 800 * 1024
-export const MAX_BANNER_IMAGE_FILE_SIZE = 400 * 1024
+export const MAX_IMAGE_FILE_SIZE = 850 * 1024
+export const MAX_BANNER_IMAGE_FILE_SIZE = 430 * 1024
 export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -31,6 +31,6 @@ export async function prepareImageUpload(
     maxWidth: options.maxWidth ?? 2400,
     maxHeight: options.maxHeight ?? 2400,
     maxFileSize: options.maxFileSize ?? MAX_IMAGE_FILE_SIZE,
-    quality: 0.84,
+    quality: 0.96,
   })
 }
