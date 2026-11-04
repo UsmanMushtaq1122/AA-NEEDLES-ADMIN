@@ -50,8 +50,9 @@ export async function compressImage(
     ]
     let currentQuality = qualitySteps[0]
     let attempt = 0
+    let lastSize = Number.POSITIVE_INFINITY
 
-    while (attempt < 35) {
+    while (attempt < 80) {
       const canvas = document.createElement("canvas")
       canvas.width = width
       canvas.height = height
@@ -72,9 +73,18 @@ export async function compressImage(
       if (qualityIndex < qualitySteps.length - 1) {
         currentQuality = qualitySteps[qualityIndex + 1]
       } else {
-        width = Math.max(320, Math.round(width * 0.85))
-        height = Math.max(320, Math.round(height * 0.85))
+        // Continue reducing dimensions until the gateway limit is met. The
+        // lower bound prevents an invalid zero-sized canvas for pathological
+        // source files while allowing small but valid final uploads.
+        const nextWidth = Math.max(64, Math.round(width * 0.8))
+        const nextHeight = Math.max(64, Math.round(height * 0.8))
+        if (nextWidth === width && nextHeight === height && blob && blob.size >= lastSize) {
+          break
+        }
+        width = nextWidth
+        height = nextHeight
       }
+      if (blob) lastSize = blob.size
       attempt += 1
     }
 
