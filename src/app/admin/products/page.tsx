@@ -34,19 +34,56 @@ import { useToast } from "@/components/ui/toast";
 import { Product, Category } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { api } from "@/lib/api";
-function fetchProducts(): Promise<{ data: Product[]; total: number }> {
-  return api.get("/products?limit=50").then((res: any) => {
-    const products = (res.data?.products || []).map((p: any) => ({
-      ...p,
-      categories: p.category ? [p.category] : [],
-    }));
+
+type ApiProduct = Omit<Product, "status" | "categoryId" | "categories"> & {
+  status: string;
+  categoryId?: string;
+  category?: Category | string | null;
+  categories?: Category[];
+};
+
+type ProductsResponse = {
+  data?: {
+    products?: ApiProduct[];
+    total?: number;
+  };
+};
+
+function fetchProducts(filters: {
+  search: string;
+  status: string;
+  categoryId: string;
+}): Promise<{ data: Product[]; total: number }> {
+  const params = new URLSearchParams({ limit: "100" });
+  if (filters.search.trim()) params.set("search", filters.search.trim());
+  if (filters.status !== "all") params.set("status", filters.status.toUpperCase());
+  if (filters.categoryId !== "all") params.set("categoryId", filters.categoryId);
+
+  return api.get<ProductsResponse>(`/products?${params.toString()}`).then((res) => {
+    const products = (res.data?.products || []).map((p) => {
+      const categoryName =
+        typeof p.category === "object" && p.category ? p.category.name : p.category || "";
+      const categorySlug =
+        typeof p.category === "object" && p.category ? p.category.slug : "";
+
+      return {
+        ...p,
+        status: p.status.toLowerCase() as Product["status"],
+        categoryId: p.categoryId || (typeof p.category === "object" ? p.category?.id : undefined),
+        categories: p.categories
+          || (typeof p.category === "object" && p.category ? [p.category] : undefined)
+          || (p.categoryId
+            ? [{ id: p.categoryId, name: categoryName, slug: categorySlug, sortOrder: 0, isActive: true, createdAt: "" }]
+            : []),
+      };
+    });
     return { data: products, total: res.data?.total || products.length };
   });
 }
 
 function fetchCategories(): Promise<Category[]> {
-  return api.get("/categories").then((res: any) => {
-    return res.data?.categories || res.data || [];
+  return api.get<{ data?: { categories?: Category[] } }>("/categories").then((res) => {
+    return res.data?.categories || [];
   });
 }
 
@@ -75,8 +112,8 @@ export default function ProductsPage() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const { data: productsData, isLoading } = useQuery({
-    queryKey: ["products"],
-    queryFn: fetchProducts,
+    queryKey: ["products", search, statusFilter, categoryFilter],
+    queryFn: () => fetchProducts({ search, status: statusFilter, categoryId: categoryFilter }),
   });
 
   const { data: categoriesData } = useQuery({
@@ -129,6 +166,7 @@ export default function ProductsPage() {
       const matchStatus = statusFilter === "all" || p.status === statusFilter;
       const matchCategory =
         categoryFilter === "all" ||
+        p.categoryId === categoryFilter ||
         p.categories.some((c) => c.id === categoryFilter);
       return matchSearch && matchStatus && matchCategory;
     });
@@ -341,7 +379,7 @@ export default function ProductsPage() {
                 className="flex h-10 appearance-none rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
               >
                 <option value="all">All Categories</option>
-                {(categoriesData || []).map((cat: any) => (
+                {(categoriesData || []).map((cat: Category) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
